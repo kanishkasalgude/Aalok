@@ -1,0 +1,72 @@
+/* Visual polish pass: motion and micro-interactions only - no content, no
+   layout, no copied artwork/branding. Inspired by the general "sleek,
+   glowing, responsive" quality of modern SaaS/docs sites; everything here
+   is QuickBite's own palette (see tokens.css) and is purely additive CSS.
+
+   Entrance/stagger animation (page transitions, card/message reveals) is
+   now driven by the Motion library (see js/motion.js) instead of CSS
+   keyframes - a real JS-orchestrated stagger reads better than an
+   nth-child animation-delay table, and it can target "just the new
+   message" instead of replaying on every element every re-render. Only
+   the small continuous decorative loops and interactive-state transitions
+   stay in CSS, where they belong. */
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes qb-pulse-glow {
+    0%, 100% { opacity: .55; transform: scale(1); }
+    50% { opacity: .9; transform: scale(1.04); }
+  }
+  @keyframes qb-drift {
+    0% { transform: translate(0, 0) rotate(0deg); }
+    50% { transform: translate(-3%, 3%) rotate(3deg); }
+    100% { transform: translate(0, 0) rotate(0deg); }
+  }
+}
+
+/* ---- interactive transitions (kept even under reduced-motion, since these
+   are state changes, not decorative animation) ---- */
+.qb-btn, .qb-chip, .qb-nav-item, .qb-pill, .qb-badge {
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, transform .15s ease, box-shadow .15s ease;
+}
+.qb-btn-primary:active:not(:disabled) { transform: translateY(1px); }
+.qb-chip:hover { transform: translateY(-1px); }
+
+.qb-card, .qb-product, .qb-stat {
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.qb-product:hover { border-color: var(--qb-border-strong); box-shadow: var(--qb-shadow-sm); transform: translateY(-2px); }
+.qb-nav-item.active { transition: background-color .2s ease, border-color .2s ease; }
+
+.qb-table tbody tr { transition: background-color .12s ease; }
+
+.qb-topbar-search input { transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease; }
+.qb-topbar-search input:focus { box-shadow: 0 0 0 3px var(--qb-accent-soft); background: #fff; }
+
+/* ---- AI Agent hero band: the mark gets a soft pulse; the band's texture
+   layer (see components.css .qb-hero-band::before) drifts gently. ---- */
+@media (prefers-reduced-motion: no-preference) {
+  .qb-chat-empty-mark { animation: qb-pulse-glow 3.2s ease-in-out infinite; }
+  .qb-hero-band::before { animation: qb-drift 12s ease-in-out infinite; }
+}
+
+.qb-starter-card {
+  transition: transform .3s cubic-bezier(.16,1,.3,1), box-shadow .3s cubic-bezier(.16,1,.3,1), border-color .3s ease;
+}
+.qb-starter-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 25px -5px rgba(15,23,42,.08), 0 8px 10px -6px rgba(15,23,42,.04);
+  border-color: var(--qb-border-strong);
+}
+.qb-starter-mock { transition: transform .3s cubic-bezier(.16,1,.3,1); }
+.qb-starter-card:hover .qb-starter-mock { transform: scale(1.03); }
+
+.qb-chat-composer { transition: box-shadow .18s ease, border-color .18s ease; }
+.qb-chat-composer:focus-within { box-shadow: 0 0 0 4px var(--qb-accent-soft), var(--qb-shadow-sm); }
+.qb-chat-send-btn { transition: background-color .15s ease, transform .15s ease; }
+.qb-chat-send-btn:hover:not(:disabled) { transform: scale(1.06); }
+.qb-chat-send-btn:active:not(:disabled) { transform: scale(0.94); }
+
+.qb-drawer { transition: transform .22s cubic-bezier(.22,.61,.36,1); }
+.qb-drawer-backdrop { transition: opacity .18s ease; }
+
+.qb-env-dot.mode-test { animation: none; box-shadow: 0 0 0 3px rgba(22,163,74,0.18); }
