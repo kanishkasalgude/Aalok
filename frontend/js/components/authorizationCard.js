@@ -12,6 +12,20 @@ function minutesLabel(min) {
 }
 import { merchantFor } from "../state.js";
 
+// Real MerchantCapabilities flags (backend/domain/catalog/capabilities.py),
+// already returned by GET /api/merchants and cached in state.js - nothing
+// here is invented or hardcoded to all-pass. A merchant with refunds/
+// subscriptions/marketplace/agentic_checkout off shows those as muted, not
+// as a failure - they're undeclared capabilities, not rejected checks.
+const CAPABILITY_LABELS = {
+  catalog: "Catalog", checkout: "Checkout", refunds: "Refunds",
+  subscriptions: "Subscriptions", marketplace: "Marketplace", agentic_checkout: "Agentic checkout",
+};
+
+function capabilityChip(label, on) {
+  return `<span class="qb-authz-cap ${on ? "success" : "muted"}">${on ? CHECK_ICON : CROSS_ICON}${label}</span>`;
+}
+
 const POLICY_CHECK_LABELS = {
   mandate_validity: "Mandate valid",
   cart_expiry: "Cart not expired",
@@ -66,9 +80,19 @@ export function authorizationCard({ authorizationDecision, decision, cartMandate
       <div class="qb-authz-row"><span class="qb-authz-row-label">Merchant</span><span class="qb-authz-row-value">${merchant.name}</span></div>
       <div class="qb-authz-row"><span class="qb-authz-row-label">Category</span><span class="qb-authz-row-value">${titleCase(merchant.category)}</span></div>
     `;
+    if (merchant.capabilities) {
+      const chips = Object.entries(CAPABILITY_LABELS)
+        .map(([key, label]) => capabilityChip(label, !!merchant.capabilities[key]))
+        .join("");
+      authzRows += `<div class="qb-authz-caps">${chips}</div>`;
+    }
   }
 
   const reason = decision ? decision.reason : (authorizationDecision ? authorizationDecision.reason : "");
+  const budgetCheck = decision && decision.checks ? decision.checks.budget : null;
+  const passSentence = passed && budgetCheck
+    ? `<div class="qb-authz-lead">${money(budgetCheck.cart_total)} is within your ${money(budgetCheck.maximum)} spending limit. All required checks passed.</div>`
+    : "";
 
   return `
     <div class="qb-authz-card">
@@ -76,6 +100,7 @@ export function authorizationCard({ authorizationDecision, decision, cartMandate
         <span class="qb-authz-head-title">${passed ? CHECK_ICON : CROSS_ICON}${passed ? "Authorization passed" : "Authorization / Policy rejected"}</span>
       </div>
       <div class="qb-authz-body">
+        ${passSentence}
         ${authzRows}
         ${policyRows}
         ${!passed && reason ? `<div class="qb-authz-reject-note"><strong>${reason}</strong><br/>No Razorpay order was created. No money moved.</div>` : ""}

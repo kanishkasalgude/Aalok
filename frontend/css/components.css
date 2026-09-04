@@ -158,6 +158,26 @@
 .qb-authz-row-value { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--qb-text); }
 .qb-authz-row-value svg { width: 13px; height: 13px; flex: none; }
 .qb-authz-reject-note { margin-top: var(--qb-space-3); padding: var(--qb-space-3); background: var(--qb-danger-soft); border-radius: var(--qb-radius); font-size: var(--qb-fs-sm); color: #991B1B; line-height: 1.5; }
+.qb-authz-lead { padding: 0 0 var(--qb-space-3); font-size: var(--qb-fs-sm); color: var(--qb-text); line-height: 1.5; }
+.qb-authz-caps { display: flex; flex-wrap: wrap; gap: 10px 14px; padding: 9px 0; border-bottom: 1px dashed var(--qb-border); }
+.qb-authz-cap { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--qb-text-secondary); }
+.qb-authz-cap svg { width: 12px; height: 12px; flex: none; }
+.qb-authz-cap.success { color: var(--qb-success); }
+.qb-authz-cap.muted { opacity: .5; }
+
+/* ============ decision trail (contextual audit, not a dashboard) ============ */
+.qb-audit-trail { margin-top: var(--qb-space-3); border: 1px solid var(--qb-border); border-radius: var(--qb-radius-lg); background: var(--qb-surface); }
+.qb-audit-trail summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: var(--qb-space-3) var(--qb-space-4); font-size: var(--qb-fs-sm); font-weight: 600; color: var(--qb-text-secondary); }
+.qb-audit-trail summary::-webkit-details-marker { display: none; }
+.qb-audit-trail summary:hover { color: var(--qb-text); }
+.qb-audit-count { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: var(--qb-radius-full); background: var(--qb-border-soft); color: var(--qb-text-secondary); font-size: 11px; font-weight: 700; }
+.qb-audit-list { padding: 0 var(--qb-space-4) var(--qb-space-3); }
+.qb-audit-row { display: flex; align-items: center; justify-content: space-between; gap: var(--qb-space-4); padding: 7px 0; border-top: 1px dashed var(--qb-border); font-size: 12.5px; }
+.qb-audit-row:first-child { border-top: none; }
+.qb-audit-row-step { color: var(--qb-text); }
+.qb-audit-row-step.success { color: var(--qb-success); }
+.qb-audit-row-step.danger { color: var(--qb-danger); }
+.qb-audit-row-time { color: var(--qb-text-secondary); font-variant-numeric: tabular-nums; flex: none; }
 
 /* ============ drawer (cart) ============ */
 .qb-drawer-backdrop {

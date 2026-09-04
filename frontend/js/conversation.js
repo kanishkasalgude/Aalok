@@ -13,6 +13,7 @@ import { api } from "./api.js";
 import { state } from "./state.js";
 import { productCard } from "./components/productCard.js";
 import { authorizationCard } from "./components/authorizationCard.js";
+import { auditTrailDisclosure } from "./components/auditTrail.js";
 import { micButtonHtml, wireVoiceButton, SEND_ICON } from "./components/composer.js";
 import { escapeHtml, brandMark } from "./format.js";
 import { speak, stopSpeaking } from "./voice.js";
@@ -161,7 +162,8 @@ export async function runPolicyRejectionDemo() {
       text: "Here's a cart proposed at &#8377;218 against a &#8377;180 ceiling. The Commerce Policy Engine rejected it "
           + "<strong>before</strong> any Razorpay call was made — this gate is deterministic Python, never an LLM decision.",
       html: true,
-      attachment: authorizationCard({ authorizationDecision: null, decision: d.decision, cartMandate: d.cart_mandate }),
+      attachment: authorizationCard({ authorizationDecision: null, decision: d.decision, cartMandate: d.cart_mandate })
+        + auditTrailDisclosure(d.audit_trail),
     });
   }
   setBusy(false);

@@ -18,6 +18,7 @@ import { api } from "../api.js";
 import { state, setCartId, cartIdFor, merchantFor } from "../state.js";
 import { money, escapeHtml } from "../format.js";
 import { authorizationCard } from "./authorizationCard.js";
+import { auditTrailDisclosure } from "./auditTrail.js";
 import { openRazorpayCheckout } from "../checkout.js";
 import { pushTurn } from "../conversation.js";
 import { fadeInUp, tapBounce } from "../motion.js";
@@ -263,7 +264,7 @@ async function runCheckout(cartId, { forceFail = false } = {}) {
   if (data.status === "rejected_by_policy" || data.status === "rejected_by_authorization") {
     showOutcome(authorizationCard({
       authorizationDecision: data.authorization_decision, decision: data.decision, cartMandate: data.cart_mandate,
-    }));
+    }) + auditTrailDisclosure(data.audit_trail));
     pushTurn({ role: "ai", text: `That cart didn't pass the policy gate — ${data.decision ? data.decision.reason : "authorization was refused"}. Nothing was charged.` });
     setFooterBusy(false);
     return;
@@ -282,7 +283,7 @@ async function runCheckout(cartId, { forceFail = false } = {}) {
   // --- passed the gate: show the receipt alongside the payment result ---
   const receipt = authorizationCard({
     authorizationDecision: data.authorization_decision, decision: data.decision, cartMandate: data.cart_mandate,
-  });
+  }) + auditTrailDisclosure(data.audit_trail);
   const merchant = merchantFor(activeMerchantId);
   const total = data.cart_mandate ? data.cart_mandate.total_amount : null;
 
