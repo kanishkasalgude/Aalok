@@ -1,80 +1,109 @@
-/* QuickBite design tokens - structurally inspired by Razorpay's docs site
-   (gradient "shelf" panels behind grouped cards, big light-weight display
-   headings, pastel icon circles, a glassy pill nav) but QuickBite's own
-   identity: slate neutrals + a teal accent, never Razorpay's blue or logo. */
+/* Aalok design tokens.
+
+   Retuned against a reverse-engineered reading of Razorpay's docs site: its
+   type system (oversized extralight display, tight negative tracking), its
+   restraint with colour (near-white surfaces, pastel tints under 50% alpha,
+   never a saturated gradient), its tight radius scale, its tinted-not-grey
+   shadows, and - most importantly - its motion constants: ONE easing curve
+   and a 180ms micro-interaction budget.
+
+   Aalok keeps its own identity throughout: a teal accent, never Razorpay's
+   blue or logo. The reference's own deep-teal dark surface (#002a29) happens
+   to sit naturally alongside that, so the dark sections use it directly. */
 :root {
-  /* surfaces */
-  --qb-bg: #F8FAFC;
+  /* ---- surfaces ---- */
+  --qb-bg: #FFFFFF;
   --qb-surface: #FFFFFF;
   --qb-surface-raised: #FFFFFF;
-  --qb-surface-sunken: #F1F5F9;
+  --qb-surface-sunken: #F3F5F7;
 
-  /* text */
-  --qb-text: #0F172A;
-  --qb-text-secondary: #475569;
-  --qb-text-muted: #94A3B8;
+  /* ---- text: a four-stop ink ramp, not six greys ---- */
+  --qb-text: #192839;
+  --qb-text-secondary: #616D75;
+  --qb-text-muted: #9AA3A9;
   --qb-text-inverse: #F8FAFC;
 
-  /* borders */
-  --qb-border: #E2E8F0;
-  --qb-border-strong: #CBD5E1;
+  /* ---- borders: hairline. 0.5px on the card itself, like the reference ---- */
+  --qb-border: #E5E7EB;
+  --qb-border-strong: #C8CDD0;
 
-  /* brand accent */
+  /* ---- brand accent (Aalok's own teal) ---- */
   --qb-accent: #0D9488;
   --qb-accent-hover: #0F766E;
-  --qb-accent-soft: #CCFBF1;
+  --qb-accent-soft: #E6F5F3;
   --qb-accent-text: #0F766E;
-  --qb-accent-2: #0EA5E9;          /* secondary accent used only in gradients/blends */
-  --qb-accent-2-soft: #E0F2FE;
+  --qb-accent-2: #0EA5E9;
+  --qb-accent-2-soft: #E8EEFE;
 
-  /* gradient "shelf" panels - the soft diagonal wash behind grouped cards */
-  --qb-shelf-gradient: linear-gradient(135deg, #BAE6FD 0%, #99F6E4 55%, #BBF7D0 100%);
-  /* the big saturated hero wash (AI Agent empty state) - a closer match to
-     the reference's rich blue->teal->green diagonal banner */
-  --qb-hero-gradient: linear-gradient(120deg, #0369A1 0%, #0D9488 55%, #059669 100%);
-  --qb-dark-gradient: linear-gradient(160deg, #0F172A 0%, #0B3B36 100%);
+  /* ---- pastel tints ----
+     The reference never paints a saturated gradient: its panel wash is two
+     stops, both under 50% alpha, on a white ground. These mirror that
+     construction with Aalok's teal-leaning hues. */
+  --qb-tint-panel: linear-gradient(205.78deg, rgba(120, 178, 200, 0.42) 25.575%, rgba(159, 255, 190, 0.18) 97.045%);
+  --qb-tint-panel-soft: linear-gradient(183.64deg, rgba(120, 178, 200, 0.34) 25.575%, rgba(159, 255, 190, 0.07) 97.045%);
+  --qb-shelf-gradient: var(--qb-tint-panel-soft);
+  /* The hero wash. The reference's hero is a LIGHT pastel field carrying
+     dark ink - not white type on a saturated band. Keeping the ground pale
+     is what lets an extralight 80px headline stay legible and is most of
+     why the page reads as expensive rather than loud. */
+  --qb-hero-gradient: linear-gradient(158deg, #CFE4F2 0%, #DCEFEA 46%, #EAF6EC 100%);
+  --qb-dark-gradient: linear-gradient(160deg, #002A29 0%, #0C3131 100%);
 
-  /* dark shell (sidebar) */
-  --qb-shell-bg: #0F172A;
-  --qb-shell-bg-raised: #1E293B;
-  --qb-shell-border: #1E293B;
-  --qb-shell-text: #CBD5E1;
-  --qb-shell-text-muted: #64748B;
+  /* ---- dark surfaces (agents band + shell), from the reference ---- */
+  --qb-dark-bg: #002A29;
+  --qb-dark-raised: #0C3131;
+  --qb-dark-border: rgba(121, 135, 156, 0.18);
+  --qb-dark-card: rgba(255, 255, 255, 0.04);
+
+  /* ---- dark shell (sidebar) ---- */
+  --qb-shell-bg: #002A29;
+  --qb-shell-bg-raised: #0C3131;
+  --qb-shell-border: rgba(121, 135, 156, 0.18);
+  --qb-shell-text: #A9BEBB;
+  --qb-shell-text-muted: #6B8481;
   --qb-shell-text-active: #FFFFFF;
 
-  /* semantic */
+  /* ---- semantic ---- */
   --qb-success: #16A34A;
-  --qb-success-soft: #DCFCE7;
+  --qb-success-soft: #D9F5E0;
   --qb-warning: #D97706;
   --qb-warning-soft: #FEF3C7;
   --qb-danger: #DC2626;
   --qb-danger-soft: #FEE2E2;
-  --qb-info: #2563EB;
-  --qb-info-soft: #DBEAFE;
-  --qb-neutral: #64748B;
-  --qb-neutral-soft: #F1F5F9;
+  --qb-info: #305EFF;
+  --qb-info-soft: #E8EEFE;
+  --qb-neutral: #616D75;
+  --qb-neutral-soft: #F3F5F7;
 
-  /* icon-circle tints (pastel bg + saturated icon color, cycled per card) */
-  --qb-icon-teal-bg: #CCFBF1; --qb-icon-teal-fg: #0F766E;
-  --qb-icon-blue-bg: #DBEAFE; --qb-icon-blue-fg: #1D4ED8;
-  --qb-icon-green-bg: #DCFCE7; --qb-icon-green-fg: #15803D;
+  /* ---- icon-circle tints ---- */
+  --qb-icon-teal-bg: #E6F5F3; --qb-icon-teal-fg: #0F766E;
+  --qb-icon-blue-bg: #E8EEFE; --qb-icon-blue-fg: #2B4FD6;
+  --qb-icon-green-bg: #D9F5E0; --qb-icon-green-fg: #1C7340;
   --qb-icon-amber-bg: #FEF3C7; --qb-icon-amber-fg: #B45309;
   --qb-icon-violet-bg: #EDE9FE; --qb-icon-violet-fg: #6D28D9;
   --qb-icon-rose-bg: #FFE4E6; --qb-icon-rose-fg: #BE123C;
 
-  /* type scale - a big, light display scale for section/page headings
-     (the reference's "Payments" / "POS" / "Banking plus" treatment) plus
-     the normal UI scale beneath it */
-  --qb-font: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* ================= typography =================
+     Four roles, matching the reference's split. The display hero is the
+     signature: extralight (200) at a large size with ~-0.06em tracking -
+     the inverse of a bold dashboard title. */
+  --qb-font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --qb-font-display: "Instrument Sans", "Inter", system-ui, sans-serif;
+  --qb-font-hero: "Inter Tight", "Inter", system-ui, sans-serif;
+  --qb-font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
   --qb-fs-xs: 12px;
   --qb-fs-sm: 13px;
   --qb-fs-base: 14px;
   --qb-fs-md: 16px;
   --qb-fs-lg: 20px;
   --qb-fs-xl: 28px;
-  --qb-fs-display: clamp(32px, 4.2vw, 48px);
+  /* Page/section display heading - 48px at 1440px, tracking -0.05em */
+  --qb-fs-display: clamp(30px, 3.6vw, 48px);
+  /* The oversized marketing hero - 80px at full width, down to 40px on phones */
+  --qb-fs-hero: clamp(40px, 6.2vw, 80px);
 
-  /* spacing (8px grid) */
+  /* ---- spacing (8px grid) ---- */
   --qb-space-1: 4px;
   --qb-space-2: 8px;
   --qb-space-3: 12px;
@@ -82,19 +111,40 @@
   --qb-space-5: 20px;
   --qb-space-6: 24px;
   --qb-space-8: 32px;
+  --qb-space-10: 40px;
+  --qb-space-12: 52px;
 
-  /* radius */
+  /* ---- radius: a tight three-stop scale ---- */
   --qb-radius-sm: 6px;
   --qb-radius: 8px;
-  --qb-radius-lg: 10px;
-  --qb-radius-xl: 20px;
+  --qb-radius-lg: 12px;
+  --qb-radius-xl: 12px;
   --qb-radius-full: 999px;
 
-  /* shadow */
-  --qb-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
-  --qb-shadow: 0 4px 16px rgba(15, 23, 42, 0.10);
-  --qb-shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.16);
+  /* ---- shadow: tinted toward the brand hue, never neutral grey, and
+     never larger than it needs to be. The reference's resting card shadow
+     is a 4px blur at 8% alpha - that is the whole effect. ---- */
+  --qb-shadow-sm: 0 1px 2px rgba(13, 100, 110, 0.06);
+  --qb-shadow: 0 2px 4px rgba(13, 100, 110, 0.08);
+  --qb-shadow-raised: 0 4px 10px rgba(13, 100, 110, 0.10);
+  --qb-shadow-lg: 0 12px 32px rgba(0, 42, 41, 0.14);
+
+  /* ================= motion =================
+     ONE easing curve for everything, and a small set of durations. Anything
+     that cannot be expressed with these does not belong on the page. */
+  --qb-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --qb-dur-micro: 180ms;   /* hover, focus, colour + border changes */
+  --qb-dur-ui: 220ms;      /* drawers, overlays, disclosure */
+  --qb-dur-entrance: 420ms;/* first-paint slide-ins */
+  --qb-stagger: 45ms;
 
   --qb-sidebar-w: 232px;
   --qb-topbar-h: 56px;
+  /* Content measure, mirroring the reference's 1440 / 64 pairing */
+  --qb-max: 1440px;
+  --qb-pad: 24px;
+}
+
+@media (min-width: 1280px) {
+  :root { --qb-pad: 40px; }
 }

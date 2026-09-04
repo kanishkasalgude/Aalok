@@ -1,72 +1,139 @@
-/* Visual polish pass: motion and micro-interactions only - no content, no
-   layout, no copied artwork/branding. Inspired by the general "sleek,
-   glowing, responsive" quality of modern SaaS/docs sites; everything here
-   is QuickBite's own palette (see tokens.css) and is purely additive CSS.
+/* ============================================================
+   Motion & micro-interaction layer.
 
-   Entrance/stagger animation (page transitions, card/message reveals) is
-   now driven by the Motion library (see js/motion.js) instead of CSS
-   keyframes - a real JS-orchestrated stagger reads better than an
-   nth-child animation-delay table, and it can target "just the new
-   message" instead of replaying on every element every re-render. Only
-   the small continuous decorative loops and interactive-state transitions
-   stay in CSS, where they belong. */
+   Derived from a reverse-engineering pass over the reference site, and it
+   is deliberately a SMALL file. Three findings shaped it:
 
+   1. The reference declares exactly one easing curve - cubic-bezier(0.22,
+      1, 0.36, 1) - and uses it everywhere. Mixing curves is what makes a
+      UI feel assembled rather than designed, so there is one here too
+      (--qb-ease).
+
+   2. Its hover budget is 180ms and its hover VOCABULARY is tiny: colour,
+      border-colour, background, and a 1.03 scale on media. Cards do not
+      lift. There is no translateY(-4px) anywhere on the reference, so
+      there is none here either - the previous -6px lift with a 25px
+      shadow has been removed.
+
+   3. It has no scroll-triggered fade-ins at all (verified: no reveal /
+      in-view / observer classes exist on the page). Depth comes from
+      cursor-driven parallax on decorative art instead. Content is never
+      hidden waiting for a scroll position.
+   ============================================================ */
+
+/* ---- continuous decorative loops (suppressed under reduced-motion by the
+   global rule in base.css, but gated here too so they never even start) ---- */
 @media (prefers-reduced-motion: no-preference) {
   @keyframes qb-pulse-glow {
     0%, 100% { opacity: .55; transform: scale(1); }
-    50% { opacity: .9; transform: scale(1.04); }
+    50% { opacity: .9; transform: scale(1.03); }
   }
   @keyframes qb-drift {
-    0% { transform: translate(0, 0) rotate(0deg); }
-    50% { transform: translate(-3%, 3%) rotate(3deg); }
+    0%   { transform: translate(0, 0) rotate(0deg); }
+    50%  { transform: translate(-2%, 2%) rotate(2deg); }
     100% { transform: translate(0, 0) rotate(0deg); }
   }
+  .qb-chat-empty-mark { animation: qb-pulse-glow 3.6s var(--qb-ease) infinite; }
+  .qb-hero-band::before { animation: qb-drift 16s var(--qb-ease) infinite; }
 }
 
-/* ---- interactive transitions (kept even under reduced-motion, since these
-   are state changes, not decorative animation) ---- */
-.qb-btn, .qb-chip, .qb-nav-item, .qb-pill, .qb-badge {
-  transition: background-color .15s ease, border-color .15s ease, color .15s ease, transform .15s ease, box-shadow .15s ease;
-}
-.qb-btn-primary:active:not(:disabled) { transform: translateY(1px); }
-.qb-chip:hover { transform: translateY(-1px); }
-
-.qb-card, .qb-product, .qb-stat {
-  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
-}
-.qb-product:hover { border-color: var(--qb-border-strong); box-shadow: var(--qb-shadow-sm); transform: translateY(-2px); }
-.qb-nav-item.active { transition: background-color .2s ease, border-color .2s ease; }
-
-.qb-table tbody tr { transition: background-color .12s ease; }
-
-.qb-topbar-search input { transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease; }
-.qb-topbar-search input:focus { box-shadow: 0 0 0 3px var(--qb-accent-soft); background: #fff; }
-
-/* ---- AI Agent hero band: the mark gets a soft pulse; the band's texture
-   layer (see components.css .qb-hero-band::before) drifts gently. ---- */
-@media (prefers-reduced-motion: no-preference) {
-  .qb-chat-empty-mark { animation: qb-pulse-glow 3.2s ease-in-out infinite; }
-  .qb-hero-band::before { animation: qb-drift 12s ease-in-out infinite; }
+/* ============ the hover model ============
+   Everything interactive shares one transition declaration so that no two
+   elements settle at different speeds. */
+.qb-btn,
+.qb-chip,
+.qb-pill,
+.qb-badge,
+.qb-nav-item,
+.qb-card,
+.qb-product,
+.qb-stat,
+.qb-starter-card,
+.qb-devpill,
+.qb-input,
+.qb-select {
+  transition:
+    background-color var(--qb-dur-micro) var(--qb-ease),
+    border-color     var(--qb-dur-micro) var(--qb-ease),
+    color            var(--qb-dur-micro) var(--qb-ease),
+    box-shadow       var(--qb-dur-micro) var(--qb-ease);
 }
 
-.qb-starter-card {
-  transition: transform .3s cubic-bezier(.16,1,.3,1), box-shadow .3s cubic-bezier(.16,1,.3,1), border-color .3s ease;
-}
+/* Cards: border + shadow only. The surface itself never moves. */
+.qb-product:hover,
 .qb-starter-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 20px 25px -5px rgba(15,23,42,.08), 0 8px 10px -6px rgba(15,23,42,.04);
   border-color: var(--qb-border-strong);
+  box-shadow: var(--qb-shadow-raised);
 }
-.qb-starter-mock { transition: transform .3s cubic-bezier(.16,1,.3,1); }
-.qb-starter-card:hover .qb-starter-mock { transform: scale(1.03); }
 
-.qb-chat-composer { transition: box-shadow .18s ease, border-color .18s ease; }
-.qb-chat-composer:focus-within { box-shadow: 0 0 0 4px var(--qb-accent-soft), var(--qb-shadow-sm); }
-.qb-chat-send-btn { transition: background-color .15s ease, transform .15s ease; }
-.qb-chat-send-btn:hover:not(:disabled) { transform: scale(1.06); }
+/* Media inside a card is the only thing that scales, and only to 1.03 -
+   the exact figure the reference uses. */
+.qb-starter-preview img,
+.qb-starter-mock,
+.qb-product-thumb {
+  transition: transform var(--qb-dur-micro) var(--qb-ease);
+}
+.qb-starter-card:hover .qb-starter-mock,
+.qb-product:hover .qb-product-thumb { transform: scale(1.03); }
+
+/* Buttons: colour only, plus a 1px press. No hover lift. */
+.qb-btn-primary:active:not(:disabled),
+.qb-btn-secondary:active:not(:disabled) { transform: translateY(1px); }
+
+/* Pill / chip: background step, no transform (reference behaviour). */
+.qb-chip:hover { border-color: var(--qb-accent); color: var(--qb-accent-text); background: var(--qb-accent-soft); }
+
+/* Sidebar nav: background + colour. */
+.qb-nav-item:hover { background: var(--qb-shell-bg-raised); color: #fff; }
+
+.qb-table tbody tr { transition: background-color var(--qb-dur-micro) var(--qb-ease); }
+
+/* Inputs: the focus ring is a soft brand-tinted halo, 3px, no glow. */
+.qb-topbar-search input,
+.qb-chat-composer { transition: border-color var(--qb-dur-micro) var(--qb-ease), box-shadow var(--qb-dur-micro) var(--qb-ease); }
+.qb-topbar-search input:focus { box-shadow: 0 0 0 3px var(--qb-accent-soft); background: #fff; }
+.qb-chat-composer:focus-within { box-shadow: 0 0 0 3px var(--qb-accent-soft); }
+
+.qb-chat-send-btn { transition: background-color var(--qb-dur-micro) var(--qb-ease), transform var(--qb-dur-micro) var(--qb-ease); }
+.qb-chat-send-btn:hover:not(:disabled) { transform: scale(1.04); }
 .qb-chat-send-btn:active:not(:disabled) { transform: scale(0.94); }
 
-.qb-drawer { transition: transform .22s cubic-bezier(.22,.61,.36,1); }
-.qb-drawer-backdrop { transition: opacity .18s ease; }
+/* Arrow nudge: the small "→" in links and actions slides 2px on hover.
+   Cheap, and one of the details that reads as considered. */
+.qb-starter-action svg,
+.qb-arrow-nudge svg { transition: transform var(--qb-dur-micro) var(--qb-ease); }
+.qb-starter-card:hover .qb-starter-action svg,
+.qb-arrow-nudge:hover svg { transform: translateX(2px); }
+
+/* Overlays keep the slightly longer UI duration. */
+.qb-drawer { transition: transform var(--qb-dur-ui) var(--qb-ease); }
+.qb-drawer-backdrop { transition: opacity var(--qb-dur-ui) var(--qb-ease); }
 
 .qb-env-dot.mode-test { animation: none; box-shadow: 0 0 0 3px rgba(22,163,74,0.18); }
+
+/* ============ cursor parallax ============
+   Decorative hero art drifts toward the pointer. The essential detail from
+   the reference: each layer carries a DIFFERENT duration (0.34s-0.61s), so
+   the group never moves as one rigid body. That desynchronisation is what
+   makes it read as physical rather than mechanical. JS only writes the
+   custom properties; the easing and duration live here. */
+.qb-par {
+  transform: translate3d(var(--qb-par-x, 0px), var(--qb-par-y, 0px), 0) rotate(var(--qb-par-r, 0deg));
+  will-change: transform;
+}
+.qb-par-1 { transition: transform 340ms var(--qb-ease); }
+.qb-par-2 { transition: transform 610ms var(--qb-ease); }
+.qb-par-3 { transition: transform 420ms var(--qb-ease); }
+.qb-par-4 { transition: transform 530ms var(--qb-ease); }
+.qb-par-5 { transition: transform 390ms var(--qb-ease); }
+.qb-par-6 { transition: transform 560ms var(--qb-ease); }
+
+/* Pointer parallax is a fine-pointer affordance only - it is meaningless on
+   touch and costs battery, so it is switched off there and on small
+   viewports. */
+@media (max-width: 1024px), (hover: none), (pointer: coarse) {
+  .qb-par { transform: none; transition: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qb-par { transform: none !important; }
+}

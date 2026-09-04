@@ -8,13 +8,34 @@ body {
   background: var(--qb-bg);
   -webkit-font-smoothing: antialiased;
 }
-h1, h2, h3, h4 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
+/* Headings take the display face and tighten their tracking as they grow -
+   the reference scales tracking with size (-0.018em at 18px, -0.05em at
+   48px) rather than applying one flat value. */
+h1, h2, h3, h4 {
+  margin: 0;
+  font-family: var(--qb-font-display);
+  font-weight: 500;
+  letter-spacing: -0.018em;
+}
 p { margin: 0; }
 a { color: var(--qb-accent-text); text-decoration: none; }
 a:hover { text-decoration: underline; }
 button { font-family: inherit; }
 table { font-variant-numeric: tabular-nums; }
+code, pre, .qb-mono, .qb-table-id { font-family: var(--qb-font-mono); }
 ::selection { background: var(--qb-accent-soft); }
+
+/* Honour the OS-level preference: decorative and positional motion is
+   removed entirely, while state-change transitions (which communicate
+   meaning) stay - just instant. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 
 .qb-scroll { overflow: auto; }
 .qb-scroll::-webkit-scrollbar { width: 8px; height: 8px; }

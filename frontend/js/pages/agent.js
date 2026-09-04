@@ -181,5 +181,13 @@ export const agentPage = {
     // the composer is already pinned in view; scrolling would shove page
     // content under the sticky topbar.
     document.getElementById("agent-input").focus({ preventScroll: true });
+
+    // A question typed into the Overview hero hands off to here. Read once
+    // and clear, so a later reload of this page doesn't re-send it.
+    const handoff = sessionStorage.getItem("qb-agent-handoff");
+    if (handoff) {
+      sessionStorage.removeItem("qb-agent-handoff");
+      sendMessage(handoff);
+    }
   },
 };

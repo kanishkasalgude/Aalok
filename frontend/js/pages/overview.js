@@ -4,6 +4,7 @@ import { statusPill } from "../components/statusPill.js";
 import { table } from "../components/table.js";
 import { mountChart, lineBarConfig } from "../components/chart.js";
 import { money, pct, dateTime, titleCase } from "../format.js";
+import { cursorParallax } from "../motion.js";
 
 const ACTIVITY_STEPS = new Set(["order_created", "payment_captured", "payment_failed", "policy_rejected", "refund_completed", "order_confirmed"]);
 
@@ -26,14 +27,55 @@ function activityStatus(step, status) {
   return status === "success" ? "pending" : status;
 }
 
+const ARROW = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>`;
+
+/* The hero's decorative layers. Each gets its own data-par strength and a
+   .qb-par-N class, and the two are deliberately mismatched: the nearest
+   shapes travel furthest AND settle fastest, which is what sells them as
+   sitting at different depths. */
+function heroArt() {
+  return `
+    <div class="qb-hero-art" aria-hidden="true">
+      <div class="qb-hero-grid qb-par qb-par-2" data-par="5"></div>
+      <div class="qb-hero-shape s4 qb-par qb-par-5" data-par="10" data-par-rotate="1.5"></div>
+      <div class="qb-hero-shape s1 qb-par qb-par-1" data-par="16" data-par-rotate="2"></div>
+      <div class="qb-hero-shape s5 qb-par qb-par-6" data-par="9"  data-par-rotate="-1.5"></div>
+      <div class="qb-hero-shape s2 qb-par qb-par-3" data-par="13" data-par-rotate="-2"></div>
+      <div class="qb-hero-shape s3 qb-par qb-par-4" data-par="11" data-par-rotate="2.5"></div>
+    </div>`;
+}
+
 export const overviewPage = {
   async render(root) {
     root.innerHTML = `
-      <div class="qb-content-header">
-        <div><div class="qb-content-title">Overview</div><div class="qb-content-subtitle">AI-attributed commerce performance across every connected merchant, derived from real order and audit data.</div></div>
-      </div>
+      <section class="qb-hero" id="ov-hero">
+        ${heroArt()}
+        <div class="qb-hero-inner">
+          <h1 class="qb-display-hero">Just ask Aalok</h1>
+          <p class="qb-hero-sub">One agent across every connected merchant. It finds, compares and buys &mdash; and never moves money without passing a deterministic policy gate first.</p>
+          <form class="qb-hero-ask" id="ov-ask">
+            <input id="ov-ask-input" type="text" autocomplete="off" placeholder="Ask for anything, in plain language&hellip;" aria-label="Ask the Aalok agent" />
+            <button class="qb-hero-ask-go" type="submit" aria-label="Ask the agent">${ARROW}</button>
+          </form>
+        </div>
+      </section>
       <div id="ov-body"><div class="qb-skel qb-skel-card"></div></div>
     `;
+
+    // Hand off to the agent page, which picks the question up on render.
+    const askForm = document.getElementById("ov-ask");
+    askForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const q = document.getElementById("ov-ask-input").value.trim();
+      if (q) sessionStorage.setItem("qb-agent-handoff", q);
+      window.location.hash = "#/agent";
+    });
+
+    // Pointer parallax. Returns a no-op teardown on touch, coarse pointers,
+    // narrow viewports and prefers-reduced-motion, so this is safe to call
+    // unconditionally.
+    this._teardownParallax = cursorParallax(document.getElementById("ov-hero"));
+
     const body = document.getElementById("ov-body");
 
     const [analyticsRes, auditRes] = await Promise.all([api.analytics(), api.audit()]);

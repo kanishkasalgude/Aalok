@@ -8,7 +8,12 @@ export { animate, stagger, spring } from "https://cdn.jsdelivr.net/npm/motion@11
 
 import { animate as _animate, stagger as _stagger } from "https://cdn.jsdelivr.net/npm/motion@11/+esm";
 
-const EASE = [0.22, 0.61, 0.36, 1];
+// The single easing curve the whole UI shares, matching --qb-ease in
+// tokens.css. Reverse-engineered from the reference site, which declares
+// exactly one curve and uses it for every transition on the page. Note the
+// second control point is 1, not 0.61: that is what gives the curve its
+// fast departure and long, quiet settle.
+const EASE = [0.22, 1, 0.36, 1];
 
 // SAFETY PRINCIPLE, verified the hard way against this project's own dev
 // tooling: a staggered/delayed animate() call can get stuck indefinitely
@@ -68,4 +73,86 @@ export function staggerIn(els, opts = {}) {
 export function tapBounce(el) {
   const controls = _animate(el, { transform: ["scale(1)", "scale(0.92)", "scale(1)"] }, { duration: 0.28, easing: EASE });
   return withCleanup(controls, el, 800);
+}
+
+/* ------------------------------------------------------------------
+ * Cursor parallax
+ *
+ * Decorative art drifts toward the pointer. Two details, both taken from
+ * the reference, are what separate this from a generic mouse-follow:
+ *
+ *   1. Each layer settles over a DIFFERENT duration (340-610ms, set by the
+ *      .qb-par-N classes in effects.css). Because the layers never arrive
+ *      together, the group reads as several objects with their own mass
+ *      rather than one rigid sheet being dragged around.
+ *
+ *   2. The pointer offset is normalised against the container, not the
+ *      window, so the effect stays proportional at any viewport size.
+ *
+ * This writes CSS custom properties only - the transition itself is CSS.
+ * That keeps it cheap (no per-frame JS animation) and means the whole
+ * effect degrades to "nothing happens" if this module never loads, which
+ * is the same visibility guarantee the entrance helpers above make.
+ * ------------------------------------------------------------------ */
+export function cursorParallax(container, opts = {}) {
+  if (!container) return () => {};
+
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const coarse = window.matchMedia("(hover: none), (pointer: coarse)").matches;
+  if (reduced || coarse || window.innerWidth <= 1024) return () => {};
+
+  const layers = [...container.querySelectorAll("[data-par]")].map((el) => ({
+    el,
+    // Strength in px of travel at the extreme edge of the container.
+    strength: parseFloat(el.dataset.par) || 8,
+    // Rotation in degrees at the extreme edge; subtle by default.
+    rotate: parseFloat(el.dataset.parRotate ?? "0"),
+  }));
+  if (!layers.length) return () => {};
+
+  let frame = 0;
+  let pending = null;
+
+  const apply = () => {
+    frame = 0;
+    if (!pending) return;
+    const { nx, ny } = pending;
+    for (const { el, strength, rotate } of layers) {
+      el.style.setProperty("--qb-par-x", `${(nx * strength).toFixed(2)}px`);
+      el.style.setProperty("--qb-par-y", `${(ny * strength).toFixed(2)}px`);
+      if (rotate) el.style.setProperty("--qb-par-r", `${(nx * rotate).toFixed(2)}deg`);
+    }
+  };
+
+  const onMove = (e) => {
+    const r = container.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    // -1..1 relative to the container's centre.
+    pending = {
+      nx: ((e.clientX - r.left) / r.width - 0.5) * 2,
+      ny: ((e.clientY - r.top) / r.height - 0.5) * 2,
+    };
+    if (!frame) frame = requestAnimationFrame(apply);
+  };
+
+  // Returning to rest is the same motion as arriving - the CSS transition
+  // carries it - so leaving just writes zeroes.
+  const onLeave = () => {
+    pending = { nx: 0, ny: 0 };
+    if (!frame) frame = requestAnimationFrame(apply);
+  };
+
+  container.addEventListener("pointermove", onMove, { passive: true });
+  container.addEventListener("pointerleave", onLeave, { passive: true });
+
+  return () => {
+    container.removeEventListener("pointermove", onMove);
+    container.removeEventListener("pointerleave", onLeave);
+    if (frame) cancelAnimationFrame(frame);
+    layers.forEach(({ el }) => {
+      el.style.removeProperty("--qb-par-x");
+      el.style.removeProperty("--qb-par-y");
+      el.style.removeProperty("--qb-par-r");
+    });
+  };
 }

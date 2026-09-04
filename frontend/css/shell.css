@@ -101,15 +101,59 @@
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: var(--qb-space-4); margin-bottom: var(--qb-space-6); flex-wrap: wrap;
 }
-/* Big, light display heading - the "Payments" / "POS" / "Banking plus"
-   treatment: large, thin-ish weight, tight tracking, rather than a bold
-   compact dashboard title. */
-.qb-content-title { font-size: var(--qb-fs-display); font-weight: 700; letter-spacing: -0.03em; line-height: 1.05; color: var(--qb-text); }
-.qb-content-subtitle { font-size: var(--qb-fs-base); color: var(--qb-text-secondary); margin-top: var(--qb-space-2); max-width: 640px; }
+/* The display heading. The reference's defining typographic move is a LIGHT
+   weight at a large size with heavy negative tracking - the opposite of a
+   bold, compact dashboard title. Its section headings sit at 48px/500 with
+   -0.05em; its hero goes to 80px/200 at -0.06em. Tracking tightens as size
+   grows, which is why this is set here and not inherited. */
+.qb-content-title {
+  font-family: var(--qb-font-display);
+  font-size: var(--qb-fs-display);
+  font-weight: 500;
+  letter-spacing: -0.05em;
+  line-height: 1.04;
+  color: var(--qb-text);
+}
+.qb-content-subtitle {
+  font-size: var(--qb-fs-base);
+  line-height: 1.45;
+  color: var(--qb-text-secondary);
+  margin-top: var(--qb-space-3);
+  max-width: 620px;
+}
+
+/* The oversized marketing hero, reserved for the Overview landing surface.
+   Inter Tight at weight 200 - Instrument Sans stops at 400, and the
+   extralight is the single most recognisable trait of the reference, so
+   this one role keeps its own face. */
+.qb-display-hero {
+  font-family: var(--qb-font-hero);
+  font-size: var(--qb-fs-hero);
+  font-weight: 200;
+  letter-spacing: -0.06em;
+  line-height: 1.06;
+  color: var(--qb-text);
+  margin: 0;
+}
+.qb-eyebrow {
+  font-family: var(--qb-font-display);
+  font-size: var(--qb-fs-lg);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 0.95;
+  color: var(--qb-text);
+  opacity: .8;
+}
 
 @media (max-width: 1024px) {
   .qb-shell { grid-template-columns: 72px 1fr; }
   .qb-brand-name, .qb-brand-tag, .qb-nav-item span.qb-nav-label, .qb-nav-section-label { display: none; }
   .qb-nav-item { justify-content: center; }
   .qb-topbar-search { display: none; }
+  /* The rail is 72px wide: the mode chip keeps only its status dot, which
+     is the part that actually carries the signal. Its full text would wrap
+     and spill past the rail. */
+  .qb-env-chip { justify-content: center; padding: var(--qb-space-2); }
+  .qb-env-chip span { display: none; }
+  .qb-brand { justify-content: center; padding-left: 0; padding-right: 0; }
 }
