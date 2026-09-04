@@ -137,3 +137,134 @@
 @media (prefers-reduced-motion: reduce) {
   .qb-par { transform: none !important; }
 }
+
+/* ============ animated icon effects ============
+   Icons in the navigation get subtle continuous animations to bring
+   the UI to life. Each animation is staggered and respects reduced-motion. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes icon-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(0.95); }
+  }
+  @keyframes icon-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-2px); }
+  }
+  @keyframes icon-rotate {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  @keyframes icon-spin-slow {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  @keyframes icon-float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-2px); }
+  }
+  @keyframes bar-grow-1 {
+    0%, 100% { transform: scaleY(0.6); }
+    50% { transform: scaleY(1); }
+  }
+  @keyframes bar-grow-2 {
+    0%, 100% { transform: scaleY(1); }
+    50% { transform: scaleY(0.5); }
+  }
+  @keyframes bar-grow-3 {
+    0%, 100% { transform: scaleY(0.8); }
+    50% { transform: scaleY(1); }
+  }
+  @keyframes scan {
+    0%, 100% { stroke-dashoffset: 0; }
+    50% { stroke-dashoffset: -10; }
+  }
+
+  /* Overview: staggered pulse on dashboard boxes */
+  .qb-nav-item[data-path="/overview"] .icon-group-1,
+  .qb-nav-item[data-path="/overview"] .icon-group-3 {
+    animation: icon-pulse 2s var(--qb-ease) infinite;
+  }
+  .qb-nav-item[data-path="/overview"] .icon-group-2,
+  .qb-nav-item[data-path="/overview"] .icon-group-4 {
+    animation: icon-pulse 2s var(--qb-ease) infinite 0.3s both;
+  }
+
+  /* AI Agent: floating person icon */
+  .qb-nav-item[data-path="/agent"] .icon-head {
+    animation: icon-float 3s var(--qb-ease) infinite;
+  }
+  .qb-nav-item[data-path="/agent"] .icon-body {
+    animation: icon-float 3s var(--qb-ease) infinite 0.2s;
+  }
+
+  /* Discover: rotating magnifying glass */
+  .qb-nav-item[data-path="/discover"] .icon-circle {
+    transform-origin: center;
+    animation: icon-rotate 4s var(--qb-ease) infinite;
+  }
+  .qb-nav-item[data-path="/discover"] .icon-line {
+    animation: icon-rotate 4s var(--qb-ease) infinite;
+  }
+
+  /* Merchants: subtle building pulse */
+  .qb-nav-item[data-path="/merchants"] .icon-roof {
+    animation: icon-pulse 2.5s var(--qb-ease) infinite;
+  }
+  .qb-nav-item[data-path="/merchants"] .icon-door {
+    animation: icon-pulse 2.5s var(--qb-ease) infinite 0.4s;
+  }
+
+  /* Orders: bouncing document */
+  .qb-nav-item[data-path="/orders"] .icon-document {
+    animation: icon-bounce 2s var(--qb-ease) infinite;
+  }
+  .qb-nav-item[data-path="/orders"] .icon-lines {
+    animation: icon-bounce 2s var(--qb-ease) infinite 0.1s;
+  }
+
+  /* Payments: card flip effect */
+  .qb-nav-item[data-path="/payments"] .icon-card {
+    animation: icon-pulse 2s var(--qb-ease) infinite;
+  }
+  .qb-nav-item[data-path="/payments"] .icon-stripe {
+    animation: icon-pulse 2s var(--qb-ease) infinite 0.25s;
+  }
+
+  /* Analytics: bars growing and shrinking */
+  .qb-nav-item[data-path="/analytics"] .icon-bar-1 {
+    transform-origin: bottom;
+    animation: bar-grow-1 2.5s var(--qb-ease) infinite;
+  }
+  .qb-nav-item[data-path="/analytics"] .icon-bar-2 {
+    transform-origin: bottom;
+    animation: bar-grow-2 2.5s var(--qb-ease) infinite;
+  }
+  .qb-nav-item[data-path="/analytics"] .icon-bar-3 {
+    transform-origin: bottom;
+    animation: bar-grow-3 2.5s var(--qb-ease) infinite;
+  }
+
+  /* Audit Trail: gentle document pulse */
+  .qb-nav-item[data-path="/audit"] .icon-document {
+    animation: icon-pulse 2.5s var(--qb-ease) infinite;
+  }
+  .qb-nav-item[data-path="/audit"] .icon-text {
+    animation: icon-pulse 2.5s var(--qb-ease) infinite 0.2s;
+  }
+
+  /* Settings: spinning gear */
+  .qb-nav-item[data-path="/settings"] .icon-gear {
+    transform-origin: center;
+    animation: icon-spin-slow 6s var(--qb-ease) infinite;
+  }
+  .qb-nav-item[data-path="/settings"] .icon-center {
+    animation: icon-pulse 3s var(--qb-ease) infinite;
+  }
+}
+
+/* Ensure animations don't affect the icon size or layout */
+.animated-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
