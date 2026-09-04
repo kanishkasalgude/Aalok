@@ -5,7 +5,9 @@ description: Run the Aalok AI Commerce Platform — FastAPI backend + browser-dr
 
 # Run Aalok
 
-Aalok is a multi-merchant AI-native commerce orchestration platform built for Razorpay's AI Buildathon. The backend is FastAPI + SQLite; the frontend is a static single-page app with hash-based routing. Drive it with `chromium-cli` — one command to launch the server and open the browser, then script interactions from there.
+Aalok is a multi-merchant AI-native commerce orchestration platform built for Razorpay's AI Buildathon. The backend is FastAPI + SQLite; the frontend is a static single-page app served from the same server.
+
+**The UI is one screen.** There is no router and there are no hash routes — `http://localhost:8000` is the whole app. It opens on the "Just ask Aalok" landing, becomes a conversation once you ask something, and surfaces the cart + authorization receipt in a right-side drawer. The Overview/Discover/Merchants/Orders/Payments/Analytics/Audit/Settings dashboards were removed from the interface; their APIs still run and are still tested. See README.md.
 
 ## Prerequisites
 
@@ -47,7 +49,7 @@ EOF
 ) &
 
 # Start the server in the background
-cd "C:\MY\MYPROJECTS\quickbite"
+cd "C:\MY\MYPROJECTS\Aalok"
 python -m uvicorn backend.main:app --reload --port 8000
 
 # Wait for server to be ready, then let chromium-cli drive it
@@ -70,18 +72,18 @@ sleep 3
 
 1. Launch the server in one terminal:
    ```bash
-   cd "C:\MY\MYPROJECTS\quickbite"
+   cd "C:\MY\MYPROJECTS\Aalok"
    python -m uvicorn backend.main:app --reload --port 8000
    ```
 
 2. Open `http://localhost:8000` in your browser (or script it with chromium-cli as shown above).
 
-3. Interact with pages:
-   - **Overview** (`#/overview`) — dashboard with key metrics
-   - **AI Agent** (`#/agent`) — conversational ordering (requires `GEMINI_API_KEY` for real LLM, falls back to heuristics)
-   - **Discover** (`#/discover`) — federated catalog search across all merchants
-   - **Merchants** (`#/merchants`) — view connected merchants and their capabilities
-   - **Orders**, **Payments**, **Analytics**, **Audit Trail**, **Settings** — other dashboard sections
+3. Interact with the one screen:
+   - **Landing** — type or speak a request into "Just ask Aalok", or click a suggestion chip
+   - **Conversation** — the agent's reply plus product cards from every merchant, inline. Requires `GEMINI_API_KEY` for the real LLM path; falls back to deterministic heuristics otherwise
+   - **Cart drawer** — opens on add-to-cart, or via the Cart button in the header
+   - **Checkout** — the drawer shows the payment result and the full authorization/policy receipt
+   - **Demos** — "see the policy engine reject a cart" (under the composer) and "Simulate a failed payment" (in the cart drawer, next to Checkout)
 
 ## Run (human path)
 
@@ -99,7 +101,7 @@ sleep 3
    python -m uvicorn backend.main:app --reload --port 8000
    ```
 
-5. Open `http://localhost:8000` — the frontend loads at that root URL, navigates via hash routes (`#/overview`, `#/agent`, etc.).
+5. Open `http://localhost:8000` — that root URL is the entire frontend. There are no other pages and no hash routes.
 
 ## Test
 
@@ -120,7 +122,7 @@ Expected: **99 tests passing**. Covers:
 - Security boundaries
 - External AI buyer reference client
 - Growth experiment benchmark
-- Dashboard read paths
+- Read-only order/refund/analytics aggregates (no longer rendered by any screen, still routed and tested)
 
 Run a single test file to isolate failures:
 ```bash
@@ -131,7 +133,7 @@ python -m pytest tests/test_mandates.py -v
 
 1. **No GEMINI_API_KEY → deterministic fallback.** The agent works without it. Set the env var to enable the real Gemini LLM path; everything falls back to regex/keyword heuristics + rule-based recommendation if it's unset or the API call times out. This is intentional — the project was tested both ways.
 
-2. **Mock payment mode by default.** Without `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET`, all payment flows run offline with synthetic responses. The UI badge shows `Mock Mode` in that case. Set `PAYMENT_PROVIDER=razorpay_test` with real keys to enable Checkout.js + real Test Mode Orders API.
+2. **Mock payment mode by default.** Without `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET`, all payment flows run offline with synthetic responses. The header chip shows `Mock payments` in that case. Set `PAYMENT_PROVIDER=razorpay_test` with real keys to enable Checkout.js + real Test Mode Orders API.
 
 3. **SQLite database file.** By default, `backend/aalok.db` (or per `DATABASE_URL` in `.env`). Gets created on first run. If you reset state, delete the `.db` file and restart the server.
 
@@ -154,7 +156,7 @@ Another process is using port 8000. Either:
 - Kill the existing process: `lsof -i :8000 | grep LISTEN | awk '{print $2}' | xargs kill -9` (Linux/Mac)
 - Use a different port: `python -m uvicorn backend.main:app --reload --port 8001`
 
-### Agent returns `"Something went wrong reaching the AI commerce agent"`
+### Agent returns `"I couldn't reach the commerce agent just then"`
 No `GEMINI_API_KEY` set, or the API call timed out. Check `.env`:
 ```bash
 grep GEMINI_API_KEY .env
@@ -184,7 +186,7 @@ SQLite doesn't support concurrent writes well. If running multiple processes:
 - Or switch to Postgres (not in scope for this project)
 
 ### Browser page is blank after navigation
-The frontend is a hash-routed SPA. If you navigate directly to `http://localhost:8000/#/agent` and see a blank page:
+`http://localhost:8000` is the only page. If it renders blank:
 1. Verify the server is running: `curl -s http://localhost:8000 | head -5`
 2. Check browser console for JS errors (F12 → Console tab)
 3. Hard-refresh: `Ctrl+Shift+R` (or Cmd+Shift+R on Mac)
@@ -196,4 +198,4 @@ The test suite uses a separate in-memory SQLite database (see `tests/conftest.py
 
 ---
 
-**All paths relative to the project root** (C:\MY\MYPROJECTS\quickbite on this machine).
+**All paths relative to the project root** (C:\MY\MYPROJECTS\Aalok on this machine).

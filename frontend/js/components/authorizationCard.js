@@ -1,5 +1,9 @@
 import { money, titleCase } from "../format.js";
 
+// Minimal line icons - no emoji/Unicode glyph anywhere in the product.
+const CHECK_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg>`;
+const CROSS_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>`;
+
 function minutesLabel(min) {
   if (min === null || min === undefined) return "—";
   if (min < 60) return `${min}m`;
@@ -20,11 +24,11 @@ const POLICY_CHECK_LABELS = {
 
 function checkRow(label, status, valueText) {
   const cls = status === "PASS" ? "success" : "danger";
-  const icon = status === "PASS" ? "✓" : "✕";
+  const icon = status === "PASS" ? CHECK_ICON : CROSS_ICON;
   return `
     <div class="qb-authz-row">
       <span class="qb-authz-row-label">${label}</span>
-      <span class="qb-authz-row-value" style="color: var(--qb-${cls})">${icon} ${valueText || status}</span>
+      <span class="qb-authz-row-value" style="color: var(--qb-${cls})">${icon}${valueText || status}</span>
     </div>
   `;
 }
@@ -69,7 +73,7 @@ export function authorizationCard({ authorizationDecision, decision, cartMandate
   return `
     <div class="qb-authz-card">
       <div class="qb-authz-head ${passed ? "pass" : "reject"}">
-        <span class="qb-authz-head-title">${passed ? "✓ Authorization passed" : "✕ Authorization / Policy rejected"}</span>
+        <span class="qb-authz-head-title">${passed ? CHECK_ICON : CROSS_ICON}${passed ? "Authorization passed" : "Authorization / Policy rejected"}</span>
       </div>
       <div class="qb-authz-body">
         ${authzRows}

@@ -33,7 +33,10 @@ export async function openRazorpayCheckout(sessionId, checkout) {
     const options = {
       key: checkout.key_id, amount: checkout.amount, currency: checkout.currency,
       name: "Aalok", description: checkout.description, order_id: checkout.order_id,
-      theme: { color: "#0D9488" },
+      // Matches --qb-accent (the ink pill) - Razorpay's widget takes a raw
+      // hex, not a CSS custom property, so this stays hardcoded in step
+      // with tokens.css rather than reading it at runtime.
+      theme: { color: "#292524" },
       handler: async function (response) {
         const res = await api.verifyPayment({
           session_id: sessionId, razorpay_payment_id: response.razorpay_payment_id,

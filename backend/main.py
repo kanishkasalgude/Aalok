@@ -76,27 +76,28 @@ app.mount("/static", StaticFiles(directory=_frontend_dir), name="static")
 
 
 @app.middleware("http")
-async def _no_cache_static(request: Request, call_next):
+async def _no_cache_frontend(request: Request, call_next):
     """This is a prototype under active iteration, not a versioned release -
-    a browser aggressively HTTP-caching /static/* across reloads (or even
+    a browser aggressively HTTP-caching the frontend across reloads (or even
     across a closed/reopened tab, since disk cache outlives the tab) means
-    an edit can silently keep serving the previous file. Cheap enough at
-    this traffic scale to just disable caching for everything under /static/."""
+    an edit can silently keep serving the previous file.
+
+    `/` is included, not just `/static/*`: index.html is what names the CSS
+    and JS files, so a stale copy of it keeps requesting stylesheets that no
+    longer exist and never learns about the ones that replaced them - which
+    is exactly what happened when the dashboard shell was removed. Cheap
+    enough at this traffic scale to just disable caching for both."""
     response = await call_next(request)
-    if request.url.path.startswith("/static/"):
+    if request.url.path == "/" or request.url.path.startswith("/static/"):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
     return response
 
 
 @app.get("/")
 def index():
-    return FileResponse(os.path.join(_frontend_dir, "index.html"))
-
-
-@app.get("/analytics")
-def analytics_page():
-    """The dashboard is now a single-page app with client-side hash
-    routing (frontend/js/router.js) - this just serves the same shell as
-    `/`, which shows the Analytics view for the #/analytics hash. Kept as
-    its own route so old bookmarks/links to /analytics keep working."""
+    """The whole frontend. Aalok's UI is a single conversational surface -
+    there is no client-side router and no second page to serve, so `/` is
+    the only HTML route. The dashboard pages that used to hang off hash
+    routes (#/overview, #/analytics, #/audit, ...) were removed; every API
+    that backed them is still mounted above and still tested."""
     return FileResponse(os.path.join(_frontend_dir, "index.html"))

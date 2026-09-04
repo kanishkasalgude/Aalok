@@ -3,26 +3,36 @@ html, body { height: 100%; }
 body {
   margin: 0;
   font-family: var(--qb-font);
+  /* 16px/400 is the reference's documented "default body" size - the
+     inherited fallback for any plain text node. Components that want the
+     smaller caption/meta scale ask for --qb-fs-sm explicitly. */
   font-size: var(--qb-fs-base);
-  color: var(--qb-text);
+  /* The reference tracks body copy slightly looser than Inter's default -
+     +0.16px at 16px, roughly +0.01em - for a more editorial feel. Set once
+     here rather than per component. */
+  letter-spacing: 0.01em;
+  line-height: 1.5;
+  color: var(--qb-text-secondary);
   background: var(--qb-bg);
   -webkit-font-smoothing: antialiased;
 }
-/* Headings take the display face and tighten their tracking as they grow -
-   the reference scales tracking with size (-0.018em at 18px, -0.05em at
-   48px) rather than applying one flat value. */
+/* Headings take the display face at its signature weight - 300, never
+   bold - and pull tighter as they grow. Only the hero <h1> uses a real
+   heading tag today; everything else that reads as a "title" (the cart
+   drawer, an authorization card) is a component label set in Inter at
+   500, per the reference's title-md/sm roles, not this rule. */
 h1, h2, h3, h4 {
   margin: 0;
   font-family: var(--qb-font-display);
-  font-weight: 500;
-  letter-spacing: -0.018em;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  color: var(--qb-text);
 }
 p { margin: 0; }
-a { color: var(--qb-accent-text); text-decoration: none; }
+a { color: var(--qb-text); text-decoration: none; }
 a:hover { text-decoration: underline; }
 button { font-family: inherit; }
-table { font-variant-numeric: tabular-nums; }
-code, pre, .qb-mono, .qb-table-id { font-family: var(--qb-font-mono); }
+code, pre, .qb-mono { font-family: var(--qb-font-mono); }
 ::selection { background: var(--qb-accent-soft); }
 
 /* Honour the OS-level preference: decorative and positional motion is

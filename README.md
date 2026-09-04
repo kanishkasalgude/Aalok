@@ -14,259 +14,147 @@ Built for Razorpay's AI Buildathon — Track: **AI Growth & Agentic Commerce**
 ![Tests](https://img.shields.io/badge/tests-99%20passing-3FA66B?style=flat-square)
 ![Payments](https://img.shields.io/badge/Razorpay-Test%20Mode-528FF0?style=flat-square&logo=razorpay&logoColor=white)
 ![Runtime](https://img.shields.io/badge/db-SQLite%2C%20no%20Docker-777169?style=flat-square)
-
-[**Why now**](#-why-now) · [**The approach**](#-the-approach) · [**Trust model**](#-the-trust-model) · [**Architecture**](#-architecture) · [**Quick start**](#-quick-start) · [**API**](#-api-surface)
+![UI](https://img.shields.io/badge/frontend-one%20screen-0D9488?style=flat-square)
 
 </div>
 
 <br/>
 
-> **Aalok is not Zomato, and it is not a production payments system.**
-> It is a reference implementation of the boundary the buildathon's own bar describes —
-> "every money action explainable, bounded and gated" — built against real Razorpay Test
-> Mode APIs, not a simulation of one.
+> **The interface is deliberately one screen. The system behind it is not.**
+>
+> Aalok's entire user-facing product is: ask a question, see results, add to cart, check out.
+> Underneath that sits a federated catalog across 16 merchant adapters, an LLM tool-calling
+> orchestrator with a hard structural boundary against payment code, a deterministic
+> non-LLM policy engine, an authorization/mandate layer, idempotent order creation, real
+> Razorpay Test Mode integration with server-side signature verification, webhook handling,
+> refunds, and a full audit trail. **None of that is a screen. All of it runs.**
 
 <br/>
 
 ## Table of contents
 
-- [Why now](#-why-now)
-- [What Aalok is](#-what-aalok-is)
-- [Which example direction this covers](#-which-example-direction-this-covers)
-- [The approach](#-the-approach)
-- [The trust model](#-the-trust-model)
-- [A single order, end to end](#-a-single-order-end-to-end)
-- [Interface](#-interface)
-- [Architecture](#-architecture)
-- [Merchant adapters](#-merchant-adapters)
-- [The Razorpay boundary](#-the-razorpay-boundary--whats-real-whats-test-mode-whats-mocked)
-- [Repository structure](#-repository-structure)
-- [Quick start](#-quick-start)
-- [Configuration](#-configuration)
-- [API surface](#-api-surface)
-- [Testing](#-testing)
-- [Known limitations](#-known-limitations)
-
-<br/>
-
----
-
-## ▸ Why now
-
-The brief's own framing: **NPCI's UAP and the global protocol race (ACP, AP2, x402) make
-agent-to-agent commerce the open problem of the year, and Razorpay's in-app pilots are
-already live.** Concretely, four things are happening in the same window this project was
-built in, and none of them are settled:
-
-| Signal | What it is |
+| | |
 |---|---|
-| **NPCI's Unified AI Protocol (UAP)** | India's rails-level attempt to let AI agents discover and transact with merchants over UPI — still emerging |
-| **ACP** | OpenAI + Stripe's Agentic Commerce Protocol |
-| **AP2** | Google's Agent Payments Protocol (Intent Mandate → Cart Mandate) |
-| **x402** | Coinbase's HTTP-402-based agent payment scheme |
-| **Razorpay's own in-app pilot with Zomato** | "a high-protein meal that can reach within 30 minutes" → agent curates → user confirms → payment completes instantly — the demo this project is modeled on, proving merchant-side demand is real *today* |
-
-Four specs, one problem, no winner yet. A hackathon build that hard-commits to one wire
-format bets against the field. Aalok's answer is to build the **pattern** every one of
-these protocols shares — a bounded intent → a priced, lockable cart → a deterministic
-allow/reject gate → a settled payment → an auditable record — using AP2's mandate
-vocabulary as the concrete shape (it maps cleanly onto Razorpay's Orders API) **without**
-adopting AP2's cryptographic signing layer or betting the project on it being the protocol
-that wins. The same reasoning is why `/api/catalog/feed` is a plain schema.org/JSON-LD feed
-rather than a bespoke format: it's the one representation any ACP/AP2/x402/UAP-style
-discovery step — or a plain HTTP client like [`examples/ai_buyer.py`](examples/ai_buyer.py)
-— can already parse without a Aalok-specific SDK.
+| [What is Aalok?](#-what-is-aalok) | [Deterministic policy engine](#-deterministic-policy-engine) |
+| [Problem](#-problem) | [Authorization / mandates](#-authorization--mandates) |
+| [Core user journey](#-core-user-journey) | [Payment architecture](#-payment-architecture) |
+| [What was removed from the UI](#-what-was-removed-from-the-ui-and-what-still-runs-underneath) | [Razorpay Test Mode](#-razorpay-test-mode) |
+| [Architecture](#-architecture) | [Idempotency](#-idempotency) |
+| [Agent architecture](#-agent-architecture) | [Payment retry](#-payment-retry) |
+| [Product retrieval](#-product-retrieval) | [Audit trail](#-audit-trail) |
+| [Recommendation system](#-recommendation-system) | [Merchant architecture](#-merchant-architecture) |
+| [Voice interaction](#-voice-interaction) | [Demo scenarios](#-demo-scenarios) |
+| [Technical architecture](#-technical-architecture) | [Project structure](#-project-structure) |
+| [Quick start](#-quick-start) | [Testing](#-testing) |
+| [Configuration](#-configuration) | [Limitations](#-limitations) |
 
 <br/>
 
 ---
 
-## ▸ What Aalok is
+## ▸ What is Aalok?
 
-Aalok is a fictional multi-merchant commerce orchestrator — **not Zomato** — built
-as a stand-in modeled directly on Razorpay's own publicly demoed pilot. We don't have
-Zomato's catalog or brand rights, so Aalok is a separate identity styled in the spirit
-of Zomato's public design system as a nod to the pilot it's modeled on.
+Aalok is an **AI-native commerce orchestration layer**. A shopper states an intent in plain
+language — *"find me running shoes under ₹3000"* — and one agent searches every connected
+merchant, compares across them, explains its pick, builds a cart, and takes the payment.
 
-> **Sept 2026 update:** the backend was refactored from a food-only build into a
-> general-purpose, multi-merchant, multi-category AI-native commerce core — food is now
-> one of 9 connected synthetic merchants across 8 categories, not the whole product. This
-> README covers the current, unified system; **[ARCHITECTURE.md](./ARCHITECTURE.md)** is
-> the deep module-by-module reference for anyone extending it.
+The thing that makes it more than a chat wrapper is what sits between the agent's
+recommendation and the merchant's money: a **deterministic Commerce Policy Engine** that
+re-derives every fact from the server and either passes or rejects the cart in plain Python.
+The LLM proposes. It never authorizes.
 
-The buildathon's actual bar isn't "call Razorpay's API" — it's stated explicitly:
-
-> Every money action explainable, bounded and gated. Show the audit trail and one failure
-> handled gracefully.
-
-So the entire system is built around one non-negotiable principle: **the LLM never has a
-direct path to money.** Every AI-driven decision (what to recommend, what to upsell) flows
-through a deterministic, non-LLM gate before a Razorpay call is ever made, and every step —
-success or failure — is written to a visible, structured audit trail.
+Aalok federates **16 synthetic merchants across 8 categories** — food, grocery, fashion,
+beauty, electronics, jewellery, entertainment and services. Every merchant in this
+environment is synthetic; there is no real Swiggy/Zomato/BigBasket/Zepto integration
+anywhere in the codebase.
 
 <br/>
 
 ---
 
-## ▸ Which example direction this covers
+## ▸ Problem
 
-The brief lists four example directions. Aalok implements three of them for real, and
-deliberately does not claim the fourth:
+Agentic commerce has an authorization problem, not a capability problem. An LLM that can
+call `create_order()` is easy. An LLM that can be *trusted* to call it is not.
 
-| Direction | Status | Where |
-|---|---|---|
-| **Conversational in-app checkout** | Implemented | The Gemini-driven chat/agent flow → cart → Commerce Policy Engine → real Razorpay Test Mode Checkout.js, including a real failure + retry path |
-| **Agent-readable catalog** | Implemented | [`/api/catalog/feed`](backend/api/routes/catalog.py) — schema.org JSON-LD, every merchant with real metadata — plus [`examples/ai_buyer.py`](examples/ai_buyer.py), a standalone external client that discovers → selects → transacts via `/api/external/purchase`, through the **same** policy gate as the chat flow |
-| **Upsell & cross-sell agent** | Implemented | `finalize_recommendation`'s primary + upsell selection with same-restaurant enforcement (prompt *and* code), generalized post-refactor into `services/recommendation` (`find_complements`/`find_substitutes`) across all 9 merchants |
-| **Campaign orchestrator** | **Not implemented** | Out of scope for this build — no scheduled/multi-touch outbound campaign logic exists anywhere in this repo. Listed here for honesty rather than left silently unaddressed |
+Three failures make agent-driven purchasing unshippable today:
+
+1. **Hallucinated commerce.** A model that invents a product, a price, or an availability
+   window will happily charge a card for it.
+2. **Unbounded spend.** "Book me a table" and "book me the ₹40,000 tasting menu" are the
+   same sentence to a model that has no ceiling.
+3. **Unexplainable money movement.** When an agent charges a customer, someone has to be
+   able to reconstruct *why* — for the customer, for support, and for the regulator.
+
+Aalok's answer is a hard architectural split. The agent is given a **read/propose-only tool
+surface** that structurally cannot reach a payment provider. Every cart it proposes is
+re-validated against server-authoritative price and inventory, then gated by a deterministic
+policy engine. Every step is written to an audit trail.
 
 <br/>
 
 ---
 
-## ▸ The approach
+## ▸ Core user journey
 
-```mermaid
-flowchart TD
-  U["USER — free text<br/>'high-protein meal under 300 in 30 min'"] --> IP
+The entire product is one screen with two states.
 
-  subgraph STEP1["1 · Intent"]
-    IP["Intent parser — Gemini<br/>structured JSON, falls back to<br/>regex/keyword heuristics"] --> IM["Intent Mandate<br/>max_amount · max_delivery_time_min · dietary_constraint"]
-  end
-
-  IM --> STEP2
-
-  subgraph STEP2["2 · Ordering agent — Gemini function-calling"]
-    T1["tool: retrieve_dishes"] --> RAG
-    RAG["3 · Hybrid RAG<br/>a) deterministic hard-filter — price/time/diet/open<br/>b) Gemini embedding semantic re-rank of survivors"] --> T1
-    T1 --> T2["tool: finalize_recommendation<br/>primary + upsell + reasoning<br/>same-restaurant enforced in prompt AND code"]
-  end
-
-  T2 --> CM["Cart Mandate<br/>locked items · total price · delivery estimate · expiry"]
-  CM --> GATE
-
-  subgraph STEP4["4 · Deterministic gate — plain Python, not an LLM call"]
-    GATE{"check_cart_against_intent()"}
-  end
-
-  GATE -->|PASS| RZP["5 · Razorpay Test Mode<br/>Orders + Checkout.js + Payments"]
-  GATE -->|REJECT| REJ["Rejection surfaced to user<br/>+ audit trail — zero charge"]
-
-  RZP --> AUDIT
-  REJ --> AUDIT["6 · Audit trail — SQLite<br/>every step, timestamped, shown as a UI panel"]
-  AUDIT --> AN["7 · Analytics<br/>platform + per-merchant AOV/conversion/upsell rate<br/>+ Gemini insight sentences over AGGREGATE data only"]
-
-  classDef stage fill:#ffffff,stroke:#d6d3d1,color:#0c0a09;
-  classDef gate fill:#0c0a09,stroke:#0c0a09,color:#ffffff;
-  classDef bad fill:#f7e9e7,stroke:#c4453a,color:#7a2b24;
-  classDef good fill:#eef5f6,stroke:#3FAAB8,color:#0c0a09;
-  class U,IP,IM,T1,RAG,T2,CM,AUDIT,AN stage;
-  class GATE gate;
-  class REJ bad;
-  class RZP good;
+```
+  ┌─────────────────────────────────────────────────────────────┐
+  │  1. LANDING            "Just ask Aalok"                      │
+  │                        one input · type or speak             │
+  └───────────────────────────┬─────────────────────────────────┘
+                              │  user states an intent
+                              ▼
+  ┌─────────────────────────────────────────────────────────────┐
+  │  2. CONVERSATION       user turn · agent reply · product     │
+  │                        cards from every merchant, inline     │
+  │                        (this replaces Discover + Merchants)  │
+  └───────────────────────────┬─────────────────────────────────┘
+                              │  add to cart
+                              ▼
+  ┌─────────────────────────────────────────────────────────────┐
+  │  3. CART DRAWER        items · qty · subtotal · total        │
+  └───────────────────────────┬─────────────────────────────────┘
+                              │  checkout
+                              ▼
+  ┌─────────────────────────────────────────────────────────────┐
+  │  4. AUTHORIZATION      payment result + the full receipt of  │
+  │     + PAYMENT          every deterministic check that ran    │
+  │                        (this replaces Orders + Audit)        │
+  └─────────────────────────────────────────────────────────────┘
 ```
 
-**Why hybrid RAG, not pure semantic search.** Recent research (MACS, ComboShoppingBench)
-specifically flags that LLMs and embeddings are unreliable at hard numeric constraints like
-budget ceilings and time limits. So retrieval here is hybrid: `rag.py`/`ranking.py`
-hard-filters on price/time/diet/open-status in plain code first, and only *then* uses Gemini
-embeddings to semantically re-rank the survivors against the free-text craving. The LLM
-never gets to "reason its way past" a hard constraint during retrieval — the same principle
-that governs the payment gate.
-
-**Why the agent is tool-using, not a single prompt.** The ordering agent is a genuine
-Gemini function-calling loop: the model is handed `retrieve_dishes` and must call it (never
-allowed to invent dishes), then must call `finalize_recommendation` as a forced
-structured-output step. Every tool call is recorded in a trace that flows into the audit
-trail — a reviewer can see not just what the agent recommended, but what it searched for and
-considered along the way.
-
-**Graceful degradation without a network / API key.** Every Gemini call in this codebase is
-wrapped in a hard timeout (`integrations/llm/gemini.py`) and falls back to a deterministic
-heuristic path: regex-based intent parsing, price-sorted retrieval, rule-based upsell
-selection, templated analytics insights. This was not theoretical — this project's own
-sandbox blocked the Gemini API during parts of development, and the fallback path is what
-let the whole system be built, tested, and demoed end-to-end without it. Set
-`GEMINI_API_KEY` on a machine with normal outbound HTTPS access and the real LLM-driven path
-runs instead — nothing else needs to change.
+There is no navigation. There is no sidebar. There is one thing to do: **ask Aalok.**
 
 <br/>
 
 ---
 
-## ▸ The trust model
+## ▸ What was removed from the UI (and what still runs underneath)
 
-The bar, decomposed into invariants that are enforced in code, not policy:
+Aalok previously exposed every subsystem as its own dashboard page. That made it read as an
+ecommerce admin console rather than a consumer product, so the dashboards were removed from
+the interface. **The engineering they rendered was not removed** — it still powers the single
+experience, is still routed, and is still tested.
 
-| Invariant | Guarantee | Mechanism |
+| Removed screen | What backed it | Where that capability lives now |
 |---|---|---|
-| **Explainable** | Every recommendation and every gate decision ships a reason a human can read before money moves | `primary_reasoning`/`upsell_reasoning` shown pre-payment; every backend step calls `audit.log_event(...)`; `policy_decision` carries a per-check breakdown, not a pass/fail bit |
-| **Bounded** | A ceiling exists even if the user never states one | `domain/commerce/mandates.py::IntentMandate` (spend/time/diet ceilings) created once per session; `DEFAULT_MAX_AMOUNT`/`DEFAULT_MAX_DELIVERY_MIN` apply regardless of user input |
-| **Gated** | The LLM proposes; it never disposes | `domain/commerce/policy.py::PolicyEngine.evaluate_cart` — deterministic, zero LLM calls — runs immediately before Razorpay order creation, shared by Aalok's own agent **and** external AI buyers. A failing gate makes **zero** Razorpay calls (`POST /api/demo/policy-rejection` proves it on demand) |
-| **Audited** | Every step, success or failure, is a first-class UI panel, not a console log | `/api/audit`, rendered with status chips + per-check breakdowns on every chat turn and order confirmation |
-| **One failure handled gracefully** | A declined payment doesn't corrupt state or duplicate a charge | `POST /api/order/confirm {force_fail: true}` simulates a decline; the same cart reuses the same Razorpay Order on retry (`orders_by_cart_key`), never creating a duplicate; both the failure and the recovery are written to the audit trail |
-| **Defense in depth** | An LLM's compliance with a prompt is not a security boundary | Same-restaurant upsell and spend/time/diet bounds are asked for in the prompt **and** independently re-verified in code after the model responds — the code check is what actually holds if the model doesn't comply |
-| **No silent degradation** | A misconfiguration fails loudly, not quietly | `PAYMENT_PROVIDER=razorpay_test` with missing keys raises `PaymentProviderMisconfigured` at call time — it never silently drops to mock mode mid-demo |
+| **Overview** — KPI cards, trend chart, activity table | `GET /api/analytics`, `GET /api/audit` | Routes live; the landing hero replaced the page |
+| **Discover** — filterable federated product grid | `GET /api/catalog/search` | **Inside the conversation.** The agent runs the same federated gateway and renders results as cards |
+| **Merchants** — merchant table + capability matrix | `GET /api/merchants` | Still fetched at boot; backs the authorization card's merchant + category rows |
+| **Orders** — order list | `GET /api/orders`, `GET /api/orders/{id}` | Routes live and tested; the order result appears in the checkout drawer instead |
+| **Payments** — payment/refund tables | `GET /api/payments/refunds`, refund service | Routes live and tested (`tests/test_refund.py`) |
+| **Analytics** — funnel, category, merchant performance, growth experiment | `GET /api/analytics`, `GET /api/growth/experiment` | Routes live and tested (`tests/test_growth_experiment.py`) |
+| **Audit Trail** — event timeline | `GET /api/audit` | **Inside the checkout.** The authorization card renders the real policy decision contextually |
+| **Settings** | `GET /api/payment-mode` | The payment-mode chip in the header |
 
-<br/>
+Deleted frontend files: 9 page modules, the hash router, and 7 dashboard-only components
+(`statCard`, `chart`, `table`, `timeline`, `statusPill`, `skeleton`, `emptyState`), plus the
+sidebar/topbar stylesheet and the Chart.js CDN dependency.
 
----
-
-## ▸ A single order, end to end
-
-```mermaid
-sequenceDiagram
-  actor User
-  participant Agent as Ordering agent (Gemini)
-  participant RAG as Hybrid RAG
-  participant Gate as Policy Engine (deterministic)
-  participant RZP as Razorpay Test Mode
-  participant Audit as Audit trail (SQLite)
-
-  User->>Agent: "high-protein meal under 300, 30 min"
-  Agent->>Audit: intent_captured
-  Agent->>RAG: retrieve_dishes(constraints)
-  RAG-->>Agent: hard-filtered + semantically re-ranked dishes
-  Agent->>Audit: catalog_search, recommendation_generated
-  Agent-->>User: primary dish + upsell + reasoning
-  User->>Agent: confirm
-  Agent->>Gate: lock Cart Mandate
-  Gate->>Gate: check_cart_against_intent()
-  alt within bounds
-    Gate->>Audit: policy_evaluated / passed
-    Gate->>RZP: create Order (real Test Mode)
-    RZP-->>User: Checkout.js widget
-    User->>RZP: pay (success@razorpay / failure@razorpay)
-    RZP-->>Gate: signed payment result
-    Gate->>Gate: verify HMAC-SHA256 signature (server-held order_id)
-    Gate->>Audit: payment_captured (or payment_failed → retryable, same order)
-  else out of bounds
-    Gate->>Audit: policy_evaluated / rejected
-    Gate-->>User: rejection + reason — zero Razorpay calls
-  end
-```
-
-<br/>
-
----
-
-## ▸ Interface
-
-A single-page dashboard (`frontend/`) with client-side hash routing — no build step, no
-framework. A badge next to the logo always shows the active payment mode
-(`RAZORPAY TEST MODE` / `MOCK MODE`), so a demo is never ambiguous about what it's running.
-
-| Route | Purpose |
-|---|---|
-| `#/overview` | Landing snapshot — key metrics at a glance |
-| `#/agent` | The conversational ordering agent — chat, cart, confirm & pay |
-| `#/discover` | Federated catalog search across all 9 merchants |
-| `#/merchants` | Connected merchants and their capabilities |
-| `#/orders` | Order history and status |
-| `#/payments` | Payment records and refunds |
-| `#/analytics` | Platform + per-merchant AOV, conversion, upsell rate, agentic funnel, growth experiment |
-| `#/audit` | The audit trail — every logged event, as a first-class panel |
-| `#/settings` | Runtime configuration surface |
+Deleted backend code: **one route** — `GET /analytics`, which served the SPA shell for a page
+that no longer exists. Nothing else.
 
 <br/>
 
@@ -274,214 +162,512 @@ framework. A badge next to the logo always shows the active payment mode
 
 ## ▸ Architecture
 
-```mermaid
-flowchart TB
-  subgraph UI["Interface — static frontend, hash-routed SPA, no build step"]
-    FE["frontend/js/pages/*"]
-  end
+A modular monolith. Dependencies point strictly inward; `domain/` imports nothing from
+`services/`, and `services/` imports nothing from `api/`.
 
-  subgraph API["api/routes — thin FastAPI routers"]
-    R["validate → call service → return"]
-  end
-
-  subgraph SVC["services/ — orchestration"]
-    direction LR
-    AGENT["agent<br/>intent parsing, tool layer,<br/>Gemini function-calling"]
-    CAT["catalog<br/>federated search + hybrid ranking"]
-    REC["recommendation<br/>complements/substitutes/upsell"]
-    CART["cart"]
-    AUTHZ["authorization"]
-    ORD["order — the ONE checkout path"]
-    PAY["payment"]
-    REF["refund"]
-    ANLY["analytics"]
-  end
-
-  subgraph DOM["domain/ — pure data + business rules, no I/O"]
-    direction LR
-    D1["catalog<br/>Product, Merchant"]
-    D2["cart"]
-    D3["commerce<br/>Intent, Authorization,<br/>Mandates, PolicyEngine"]
-    D4["orders / payments / refunds"]
-    D5["audit"]
-  end
-
-  subgraph INT["integrations/ — the outside world"]
-    direction LR
-    I1["llm/gemini.py<br/>hard-timeout wrapper"]
-    I2["merchants/<br/>9 synthetic adapters"]
-    I3["razorpay/<br/>Mock + Real provider"]
-  end
-
-  subgraph REPO["repositories/ — SQLite"]
-    RP["db.py, audit_repo.py,<br/>order_repo.py, refund_repo.py"]
-  end
-
-  UI --> API --> SVC
-  SVC --> DOM
-  SVC --> INT
-  SVC --> REPO
-  AGENT -.never touches.-> I3
-  AGENT -.never touches.-> RP
-
-  classDef ui fill:#eef5f6,stroke:#3FAAB8,color:#0c0a09;
-  classDef api fill:#ffffff,stroke:#d6d3d1,color:#0c0a09;
-  classDef svc fill:#ffffff,stroke:#d6d3d1,color:#0c0a09;
-  classDef dom fill:#0c0a09,stroke:#0c0a09,color:#ffffff;
-  classDef int fill:#f0efed,stroke:#777169,color:#0c0a09;
-  classDef repo fill:#f0efed,stroke:#777169,color:#0c0a09;
-  class FE ui;
-  class R api;
-  class AGENT,CAT,REC,CART,AUTHZ,ORD,PAY,REF,ANLY svc;
-  class D1,D2,D3,D4,D5 dom;
-  class I1,I2,I3 int;
-  class RP repo;
+```
+   api/routes/          thin FastAPI routers — HTTP concerns only
+        │
+        ▼
+   services/            orchestration: agent, catalog, recommendation,
+        │               cart, authorization, order, payment, refund, analytics
+        ▼
+   domain/              pure rules + data. No I/O. PolicyEngine lives here.
+        ▲
+        │
+   integrations/        LLM (Gemini), 9 merchant adapters, Razorpay provider
+   repositories/        SQLite persistence + audit log
 ```
 
-One FastAPI process, organized by domain boundary, not by microservice — no Kubernetes, no
-Kafka/Redis/Postgres/vector DB. SQLite + a modular monolith is sufficient for this prototype.
+The critical path — the only way money can move:
 
-**AI tool boundary.** `services/agent/tools.py` is the *entire* surface the LLM is ever
-handed: `search_catalog, get_product, compare_products, check_availability,
-get_delivery_estimate, find_complements, find_substitutes, create_cart, modify_cart,
-get_cart, get_order_status`. The LLM structurally **cannot** reach
-`create_razorpay_order`, `capture_payment`, `refund_payment`, `verify_payment`, the webhook
-secret, or DB credentials — those symbols don't exist in the tools module
-(`tests/test_ai_tool_boundary.py` asserts this directly, both via the declared tool list and
-via module-namespace inspection).
+```
+  user message
+      │
+      ▼
+  parse_intent()                       LLM or deterministic keyword fallback
+      │
+      ▼
+  IntentMandate.create()               spend ceiling · time ceiling · attributes
+      │
+      ▼
+  run_commerce_agent()                 Gemini tool-calling loop over tools.py
+      │                                (read/propose only — cannot reach payments)
+      ▼
+  cart proposed
+      │
+      ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │  OrderService.checkout()  ← THE single path             │
+  │                                                          │
+  │   1. cart_service.revalidate()   server-authoritative    │
+  │                                  price + inventory       │
+  │   2. CartMandate.create()        immutable snapshot      │
+  │   3. AuthorizationService.check()  may this session      │
+  │                                    transact at all?      │
+  │        └─ REJECT → return. Zero Razorpay calls.          │
+  │   4. PolicyEngine.evaluate_cart()  is THIS cart valid?   │
+  │        └─ REJECT → return. Zero Razorpay calls.          │
+  │   5. reuse-or-create InternalOrder  (idempotency key)    │
+  │   6. PaymentService.attempt_payment()                    │
+  └─────────────────────────────────────────────────────────┘
+```
 
-**Idempotency.** `Cart.version` increments on every mutation; `OrderService` keys a pending
-order by `checkout:{cart_id}:{cart_version}`. A retry after a failed payment reuses the
-existing order instead of creating a second one; a retry against an already-captured order
-short-circuits before Authorization/Policy even run.
-
-Full module-by-module reference, including the two-stage Authorization vs. Commerce Policy
-Engine split, the Unified Commerce Schema, and every request-lifecycle state machine: see
-**[ARCHITECTURE.md](./ARCHITECTURE.md)**.
+Aalok's own agent (`POST /api/agent/chat` → cart → `POST /api/orders`) and a third-party AI
+buyer (`POST /api/external/purchase`) call **literally the same method** — not "the same
+logic", the same code path. There is no privileged route. `tests/test_security_boundary.py`
+asserts this.
 
 <br/>
 
 ---
 
-## ▸ Merchant adapters
+## ▸ Agent architecture
 
-Every merchant is explicitly synthetic and fictional — no real Swiggy/Zomato/BigBasket/
-Zepto/BlueStone/PVR/Vi API or data is used anywhere in this project.
+Three stages, each independently degradable.
 
-| Merchant | Category | Products | Notes |
-|---|---|---|---|
-| 8 restaurants (`food_adapter.py`) | food | ~35 dishes | the project's original, already-sourced food catalog — one adapter instance per restaurant |
-| FreshKart | grocery | 10 | synthetic, BigBasket-style |
-| ZipMart | grocery (quick-commerce) | 8 | synthetic, Zepto-style, sub-15-min delivery |
-| Threadloom | fashion | 9 | synthetic |
-| GlowNest | beauty | 8 | synthetic, Honasa-style |
-| CircuitBay | electronics | 8 | synthetic |
-| Aurelia | jewellery | 8 | synthetic, BlueStone-style |
-| CineHall | entertainment | 8 | synthetic, PVR-style (tickets + concessions) |
-| ConnectPlus | services | 8 | synthetic, Vi-style (recharge/broadband/DTH) |
+**1. Intent parsing** — `services/agent/intent.py`
 
-Each adapter ships raw seed data in that merchant's own field-naming convention and a
-`_normalize()` step that turns it into the Unified `Product` schema — a genuine
-normalization pass, not a schema pass-through. Adding a real merchant later means
-implementing `MerchantAdapter`'s four methods against the real API and registering the
-instance — nothing else in the codebase changes.
+Extracts category, budget ceiling, delivery-time requirement and required attributes from
+free text. Uses Gemini when `GEMINI_API_KEY` is set; falls back to a deterministic keyword
+and regex map covering all 8 categories when it isn't. The fallback is not a stub — the whole
+product works offline through it.
+
+**2. Tool-calling loop** — `services/agent/orchestrator.py`
+
+A Gemini function-calling loop over the tool surface below. The model may call any tool any
+number of times (bounded by `max_turns`), then **must** call `finalize_recommendation` exactly
+once as its last action — a forced structured-output step. `finalize_recommendation` is
+deliberately *not* in `ALL_TOOL_DECLARATIONS`: it is loop control, not a commerce operation.
+
+**3. The tool boundary** — `services/agent/tools.py`
+
+This module is the entire surface the LLM is ever handed:
+
+```
+search_catalog · get_product · compare_products · check_availability
+get_delivery_estimate · find_complements · find_substitutes
+create_cart · modify_cart · get_cart · get_order_status
+```
+
+Two properties are enforced structurally, not by convention:
+
+- **Nothing raises.** Every tool returns a plain dict, using an `{"error": ...}` shape on
+  failure, so a model calling a tool with fabricated or malformed arguments degrades the loop
+  gracefully instead of crashing the request.
+- **Nothing can move money.** The module does not import, reference or expose a Razorpay
+  client, a payment provider, a webhook secret, a database credential, or any policy-override
+  path. `create_cart` and `modify_cart` only ever *propose*. Nothing in the file can reach
+  `OrderService.checkout()`.
+
+`tests/test_ai_tool_boundary.py` asserts this by inspecting `ALL_TOOL_DECLARATIONS` and the
+module's own globals — so the boundary fails a test if someone adds an import, rather than
+failing in production.
+
+If Gemini is unreachable or times out (`integrations/llm/gemini.py` enforces a hard overall
+timeout), the loop degrades to `commerce_agent.py`'s deterministic path. The product does not
+hang and does not stop working.
 
 <br/>
 
 ---
 
-## ▸ The Razorpay boundary — what's real, what's Test Mode, what's mocked
+## ▸ Product retrieval
 
-The payment path uses REAL Razorpay Checkout.js + signature verification when
-`PAYMENT_PROVIDER=razorpay_test` is configured — nothing about the outcome is simulated in
-that mode:
+**Federation** — `services/catalog/gateway.py`
+
+One `search_catalog()` call fans out across every registered merchant adapter and returns a
+single unified list. Every product is normalised into the **Unified Commerce Schema**
+(`domain/catalog/schema.py`) so a jewellery item, a cinema ticket and a plate of dosa carry
+the same top-level shape — `product_id`, `merchant_id`, `title`, `price`, `mrp`, `currency`,
+`availability`, `delivery`, `attributes`, `relationships` — with category-specific fields
+living inside `attributes` rather than forking the schema.
+
+**Hybrid ranking** — `services/catalog/ranking.py`
+
+Retrieval is deliberately hybrid, because embeddings are unreliable at hard numeric
+constraints:
+
+1. **Deterministic hard filter, in plain code** — price ceiling, delivery-time ceiling,
+   required attributes, availability. A budget is never "semantically" satisfied.
+2. **Semantic re-rank, within the survivors** — Gemini `text-embedding-004` ranks the
+   remaining candidates by similarity to the user's free-text intent.
+
+With no API key, step 2 falls back to price-ascending order. The hard filter never falls back,
+because it is the part that carries the guarantee.
+
+<br/>
+
+---
+
+## ▸ Recommendation system
+
+`services/recommendation/service.py`, kept deliberately separate from retrieval.
+
+Catalog search returns candidates; the recommender picks a primary and — critically — grounds
+any upsell in a **declared catalog relationship**. An upsell candidate must appear in the
+primary product's `relationships.complement_ids`, populated by the merchant adapter's own seed
+data.
+
+> The LLM may explain *why* a pairing is useful. It never gets to decide that the pairing
+> exists.
+
+This replaced an earlier food-only heuristic (restrict upsells to beverage/dessert-tagged
+dishes) that did not generalise across categories. Rather than carry a heuristic forward into
+7 more verticals, the rule was tightened to require real data.
+
+<br/>
+
+---
+
+## ▸ Deterministic policy engine
+
+`domain/commerce/policy.py`. **Non-LLM. This is the load-bearing component.**
+
+`PolicyEngine.evaluate_cart()` is the only function allowed to decide whether a proposed cart
+may proceed toward a Razorpay order. It runs identically for Aalok's own agent and for an
+external AI buyer. It emits a per-check breakdown, not a pass/fail bit:
+
+| Check | What it asserts |
+|---|---|
+| `mandate_validity` | The IntentMandate is still active and unexpired |
+| `cart_expiry` | The cart snapshot hasn't aged out |
+| `budget` | `cart_total ≤ max_amount` — the spend ceiling |
+| `delivery_time` | Estimated delivery ≤ the stated ceiling (unbounded when none was stated) |
+| `merchant_availability` | The merchant is actually open |
+| `inventory` | Every line item is currently available, re-fetched from the adapter |
+| `attributes` | Required attributes (e.g. dietary constraints) hold for every item |
+
+The returned `PolicyDecision` carries `{allowed, decision, reason, reasons, checks,
+mandate_id, cart_total, max_allowed, timestamp}`. **Every row rendered in the checkout drawer
+is a live field from this object** — the UI paraphrases nothing.
+
+A rejection returns *before any Razorpay call is made*. The response's `razorpay_called` flag
+is `False`, and that is asserted in `tests/test_mandates.py`.
+
+<br/>
+
+---
+
+## ▸ Authorization / mandates
+
+`domain/commerce/mandates.py`, `domain/commerce/authorization.py`,
+`services/authorization/service.py`.
+
+Two mandates, one nested inside the other:
+
+- **IntentMandate** — created the moment intent is captured. Carries `max_amount`,
+  `max_delivery_time_min`, `dietary_constraint`, `required_attributes`, and an expiry. This is
+  the user's stated envelope.
+- **CartMandate** — created at checkout, snapshotting the *actual* cart (items, prices,
+  merchant, merchant-open state, estimated delivery) against its parent IntentMandate. It is
+  immutable: prices are locked from a server re-fetch, never from what the client sent.
+
+**Authorization** is a separate gate that runs *before* policy, answering a different
+question. Policy asks "is this cart valid?"; authorization asks "may this session transact at
+all?" — checking mode, status and scope.
 
 ```
-cart locked
-  → Commerce Policy Engine (check_cart_against_intent) → PASS
-  → backend creates exactly ONE Razorpay Order (real POST /v1/orders)
-  → frontend opens Razorpay Checkout.js with that order_id
-  → user completes payment in the real Test Mode widget (UPI: success@razorpay / failure@razorpay)
-  → Checkout returns {razorpay_payment_id, razorpay_order_id, razorpay_signature}
-  → backend verifies HMAC-SHA256(order_id + "|" + payment_id, key_secret)
-       — using THIS SERVER'S OWN stored order_id, never the one in the request body
-  → only a verified signature marks payment_captured
-  → the webhook (if configured) independently confirms/updates the same state, idempotently
+AuthorizationMode:    ONE_TIME_CHECKOUT (default — consumed on first capture)
+                      USER_MANDATE      (longer-lived, reusable across checkouts)
+                      FUTURE_AGENTIC_RESERVE (declared, deliberately NOT implemented)
+
+AuthorizationStatus:  ACTIVE · EXPIRED · REVOKED · CONSUMED
 ```
 
-| Aalok concept | Razorpay object/API | Status |
+Neither gate can be skipped. Neither is an LLM call.
+
+<br/>
+
+---
+
+## ▸ Payment architecture
+
+`services/payment/service.py` + `integrations/razorpay/provider.py`.
+
+A `PaymentProvider` abstract base defines the full surface — `create_order`, `fetch_order`,
+`attempt_payment`, `fetch_payment`, `verify_checkout_signature`, `verify_webhook_signature`,
+`create_refund`, `fetch_refund` — with two implementations behind it:
+
+- **`MockProvider`** — fully offline. Every response carries `"mode": "mock"`.
+- **`RazorpayProvider`** — the real Test Mode REST API.
+
+`get_active_provider()` resolves which is live and reports it honestly through
+`GET /api/payment-mode`, which is what the header chip reads. There are four possible states:
+`mock`, `test`, `misconfigured`, and mock-forced-despite-real-keys-present.
+
+**Aalok never fails silently into mock mode.** If `PAYMENT_PROVIDER=razorpay_test` is set but
+keys are missing, checkout returns `provider_misconfigured` and says so in the UI. A demo that
+quietly degrades to fake payments is worse than one that stops.
+
+Aalok also never re-implements payment collection UI. Real Test Mode checkout loads
+**Razorpay's own Checkout.js widget** (`frontend/js/checkout.js`).
+
+<br/>
+
+---
+
+## ▸ Razorpay Test Mode
+
+What is real, precisely:
+
+| Capability | Status |
+|---|---|
+| Orders API (`create_order` / `fetch_order`) | **Real** Test Mode REST call |
+| Checkout.js widget | **Real** — Razorpay's own script, never re-implemented |
+| Checkout signature verification | **Real** HMAC-SHA256, **server-side** |
+| Webhook signature verification | **Real** HMAC-SHA256 over the raw body |
+| Refunds API | **Real** Test Mode call |
+| Payment capture | Test Mode — no real money moves |
+| Merchant catalogs | **Synthetic** — 16 seeded adapters, no live merchant integration |
+
+The browser's checkout callback is **never trusted on its own**. When Checkout.js returns,
+the frontend reports the result to `POST /api/order/verify-payment`, and the server
+recomputes the HMAC signature before anything is marked captured. A forged callback fails
+verification and the order stays pending — asserted in `tests/test_razorpay_integration.py`.
+
+<br/>
+
+---
+
+## ▸ Idempotency
+
+`OrderService` keys orders on `cart.idempotency_key()` — derived from `(cart_id,
+cart_version)`. The cart version increments on every mutation, so *modifying* a cart correctly
+produces a new order, while *retrying* the same cart does not.
+
+Three behaviours follow:
+
+1. **Retry before capture** → the existing pending `InternalOrder` is reused, including its
+   `razorpay_order_id`. No second Razorpay order is created.
+2. **Retry after capture** → short-circuits to an idempotent no-op returning the original
+   result, with `razorpay_called: False` and `already_captured: True`. This check runs
+   *before* re-validation deliberately: a `ONE_TIME_CHECKOUT` authorization is consumed on
+   first capture, so naive re-validation would wrongly reject an already-successful re-confirm.
+3. **Every reuse is audited** as an `order_reused` event.
+
+`tests/test_payment_safety.py` asserts the same Razorpay order id comes back across a retry.
+
+<br/>
+
+---
+
+## ▸ Payment retry
+
+A failed payment leaves the order **pending**, not dead. The checkout drawer surfaces a
+**Retry payment** button that re-runs the identical cart — which is exactly what demonstrates
+idempotency, because the drawer prints the Razorpay order id both times and it does not change.
+
+The drawer also carries a **Simulate a failed payment** control next to checkout. It is not a
+mock: it sets `force_fail=true` on the real `POST /api/orders` call, so the failure travels the
+genuine `PaymentService.attempt_payment` → `payment_failed` path, writes real
+`payment_attempted` / `payment_failed` audit events, and produces a genuinely retryable order.
+
+<br/>
+
+---
+
+## ▸ Audit trail
+
+`repositories/audit_repo.py`, with a named event vocabulary in `domain/audit/events.py` — 24
+constants rather than string literals scattered across services, so the vocabulary is visible
+in one place and typo-proof:
+
+```
+intent_captured · authorization_created/checked/expired/revoked
+user_confirmation_required/received · catalog_search · recommendation_generated
+cart_created · cart_modified · policy_evaluated/passed/rejected
+order_created · order_reused · order_confirmed
+payment_attempted/failed/captured/retry · webhook_received
+refund_requested · refund_completed
+```
+
+Every commerce operation that matters writes one. **Chain-of-thought is never logged** — only
+concise, user-safe reasoning plus the ids, amounts and decisions needed to reconstruct what
+happened.
+
+The trail is queryable at `GET /api/audit?session_id=…`. It no longer has a dashboard page;
+the checkout drawer renders the decision that matters at the moment it matters.
+
+<br/>
+
+---
+
+## ▸ Merchant architecture
+
+`integrations/merchants/` — 9 adapter modules registered through `registry.py`, seeding **16
+merchants across 8 categories**:
+
+| Category | Merchants |
+|---|---|
+| Food | Grill & Greens · Spice Route · Wok This Way · Sprout & Steel · Curry Leaf · Basil & Bread · Tandoor Tales · Green Bowl Co. |
+| Grocery | FreshKart · ZipMart |
+| Fashion | Threadloom |
+| Beauty | GlowNest |
+| Electronics | CircuitBay |
+| Jewellery | Aurelia |
+| Entertainment | CineHall |
+| Services | ConnectPlus |
+
+Each adapter implements the same interface — catalog listing, product lookup, availability,
+delivery estimate — and declares its own **capability matrix** (`domain/catalog/capabilities.py`):
+`CATALOG`, `CHECKOUT`, `REFUNDS`, `SUBSCRIPTIONS`, `MARKETPLACE`, `AGENTIC_CHECKOUT`. Capabilities
+a synthetic merchant does not actually implement are declared **off** rather than faked.
+
+Merchants also carry real operational state — `open`/`closed`, tier, rating — which the policy
+engine reads. Green Bowl Co. is seeded closed specifically so the `merchant_availability` check
+has something true to fail on.
+
+<br/>
+
+---
+
+## ▸ Voice interaction
+
+Voice is an **input mode**, not a second product. There is no voice page, no voice route, and
+no voice-specific backend.
+
+```
+  microphone tap
+      │
+      ▼
+  Web Speech API (SpeechRecognition, en-IN)
+      │  interim transcripts stream into the field as you speak
+      ▼
+  final transcript
+      │
+      ▼
+  sendMessage(text, { viaVoice: true })   ← the SAME function the text
+      │                                      composer calls
+      ▼
+  POST /api/agent/chat                    ← byte-identical request
+      │
+      ▼
+  normal agent reply + product cards
+      │
+      ▼
+  speechSynthesis reads the reply back    ← only when the turn arrived by voice
+```
+
+Design decisions worth naming:
+
+- **`en-IN` recognition locale.** The catalog and prices are Indian; this measurably improves
+  rupee amounts and product names like *Masala Dosa* or *kurta* over the `en-US` default.
+- **Voice in, voice out.** A spoken question gets a spoken answer; a typed one doesn't. That
+  keeps the modality the user chose and means no mute toggle has to exist.
+- **Only the reply text is spoken**, not the product grid — the cards are already on screen,
+  and reading eight of them aloud would be unusable.
+- **No dead control.** Firefox and older Safari expose no `SpeechRecognition`. Rather than
+  ship a microphone that cannot record, `micButtonHtml()` returns nothing and the button is
+  never rendered. Text input is unaffected.
+- **Aalok never talks over you.** Opening the microphone cancels any in-flight speech.
+
+Files: `frontend/js/voice.js` (the API wrapper) and `frontend/js/components/composer.js` (the
+shared control, rendered at two sizes on the landing and in the conversation).
+
+<br/>
+
+---
+
+## ▸ Demo scenarios
+
+All five run from the single screen. No hidden URLs, no dashboard.
+
+**Demo 1 — the happy path**
+> Ask *"Find me running shoes under ₹3000"*. The agent searches every merchant, ranks, and
+> explains its top pick. Add it to cart → Checkout. The drawer shows payment captured plus the
+> full authorization receipt: budget `₹2,499 / ₹3,000`, mandate valid, cart not expired,
+> merchant open, inventory available, delivery constraint, attribute match.
+
+**Demo 2 — deterministic policy rejection**
+> Click *"see the policy engine reject a cart"* under the composer. This runs the real
+> `POST /api/demo/policy-rejection`: a genuinely over-budget cart (₹218 against a ₹180 ceiling)
+> through the same `OrderService.checkout()` every purchase uses. The rejection card appears
+> **inside the conversation**, with the failing check highlighted and the note *"No Razorpay
+> order was created. No money moved."* The reject is a real gate, not a canned response.
+
+**Demo 3 — payment failure and retry**
+> With items in the cart, click *"Simulate a failed payment"*. The order stays pending and a
+> **Retry payment** button appears. Click it — the payment captures, and the Razorpay order id
+> printed on the retry is **identical** to the one printed on the failure. That is idempotency,
+> demonstrated rather than claimed.
+
+**Demo 4 — successful authorization**
+> Any successful checkout renders the complete decision receipt contextually in the drawer.
+> Every row is a live field from the real `PolicyDecision` and `AuthorizationDecision`.
+
+**Demo 5 — voice**
+> Tap the microphone, say *"find me running shoes under three thousand rupees"*. The transcript
+> becomes the user turn, the same agent pipeline runs, and the reply is read back. Identical
+> flow to Demo 1 — because it is the same code path.
+
+<br/>
+
+---
+
+## ▸ Technical architecture
+
+| Layer | Choice | Why |
 |---|---|---|
-| Internal order | Orders API (`POST /v1/orders`) | **Implemented** — real REST call in Test Mode |
-| Checkout | Standard Checkout (Checkout.js) | **Implemented** — real widget, unmodified flow |
-| Payment capture/state | Payments API (`fetch_payment`) | **Implemented** |
-| Signature verification | `HMAC-SHA256(order_id\|payment_id, key_secret)` | **Implemented** — Razorpay's documented algorithm |
-| Webhook | `X-Razorpay-Signature` + `X-Razorpay-Event-Id` dedupe | **Implemented** |
-| Refunds | `POST /v1/payments/{id}/refund` | **Implemented** (mock + real-REST-shape test mode) |
-| Mock mode | n/a | **Implemented** — every response tagged `"mode": "mock"`, exercises the full flow with zero network calls |
-| UPI Reserve Pay / Agentic Payments on LLMs | Razorpay's live "coming soon" / partner-only products | **Not implemented / not claimed** — no self-serve API reference is publicly available; Aalok's own deterministic Authorization + Policy engine is what actually enforces spending bounds today |
-| Razorpay MCP Server, Agent Studio | merchant back-office automation | **Architectural extension points only** — real Razorpay products solving a different (merchant back-office, not consumer-checkout) problem; not integrated |
+| Backend | FastAPI (Python 3.11) | Pydantic request models give the LLM-facing routes real validation for free |
+| Persistence | SQLite | No Docker, no service to start. Analytics + audit are durable; sessions/carts/orders are in-memory (see Limitations) |
+| LLM | Gemini (`gemini-*` + `text-embedding-004`) | Function calling for the tool loop, embeddings for semantic re-rank. Both optional |
+| Payments | Razorpay Test Mode + Checkout.js | Real Orders API, real HMAC verification, real webhooks |
+| Frontend | Vanilla ES modules, no build step | ~1.5k lines of JS, ~870 of CSS, 12 modules. Served straight from FastAPI's static mount |
+| Animation | [motion.dev](https://motion.dev) via CDN ESM | One easing curve, 180ms micro-interaction budget |
+| Voice | Web Speech API | No dependency, no key, no server round-trip for STT/TTS |
 
-Two separate demos, not to be confused (see `main.py` docstrings):
-
-- **Demo A — policy rejection** (`POST /api/demo/policy-rejection`): an invalid cart is
-  REJECTED by the Commerce Policy Engine before any Razorpay call. `razorpay_called` is
-  always `false`, in every payment mode.
-- **Demo B — payment failure → retry → success**: a normal `Confirm & Pay` in real Test
-  Mode. Use UPI `failure@razorpay` to trigger a real decline (order stays pending,
-  retryable), then `Confirm & Pay` again with `success@razorpay` to complete it. Both
-  attempts use the exact same Razorpay Order — see the audit trail's `order_reused` event.
-
-Without `RAZORPAY_WEBHOOK_SECRET` set, `/api/webhook/razorpay` refuses to process anything
-(HTTP 501) — it never silently accepts an unverified delivery, local or live.
+**A note on the frontend's motion safety.** Entrance animations only ever animate `transform`,
+never `opacity`. This is deliberate: a staggered animation can stall indefinitely in a
+throttled background tab, and content whose visibility depends on an animation completing can
+vanish permanently. CSS's default (fully visible) governs at all times; motion is a cosmetic
+slide layered on top, never a gate.
 
 <br/>
 
 ---
 
-## ▸ Repository structure
+## ▸ Project structure
 
 ```
 aalok/
 ├─ backend/
-│  ├─ main.py               app factory: routers, startup, static mount
-│  ├─ core/                 config.py, errors.py
-│  ├─ domain/                pure data + business rules — no I/O
-│  │  ├─ catalog/              Product (unified schema), Merchant, Capabilities
+│  ├─ main.py                 app factory: routers, startup, static mount
+│  ├─ core/                   config.py, errors.py
+│  ├─ domain/                 pure data + business rules — no I/O
+│  │  ├─ catalog/               Product (unified schema), Merchant, Capabilities
 │  │  ├─ cart/                  Cart, CartItem, CartStatus
-│  │  ├─ commerce/               Intent, Authorization, Mandates, PolicyEngine
-│  │  ├─ orders/ payments/ refunds/  state + status enums
-│  │  └─ audit/                    named audit event-type constants
+│  │  ├─ commerce/              Intent, Authorization, Mandates, PolicyEngine  ← the gate
+│  │  ├─ orders/ payments/ refunds/   state + status enums
+│  │  └─ audit/                 24 named audit event-type constants
 │  ├─ services/               orchestration
-│  │  ├─ agent/                 intent parsing, AI tool layer, Gemini function-calling loop
-│  │  ├─ catalog/                 federated search (gateway.py) + hybrid ranking (ranking.py)
-│  │  ├─ recommendation/            complements/substitutes/upsell
-│  │  ├─ cart/ authorization/ order/ payment/ refund/  one service each
-│  │  ├─ analytics/                    platform/merchant analytics + agentic funnel
-│  │  └─ session/                        server-side session state
-│  ├─ integrations/           talks to the outside world
+│  │  ├─ agent/                 intent parsing · AI tool layer · Gemini tool loop
+│  │  ├─ catalog/               federated gateway.py + hybrid ranking.py
+│  │  ├─ recommendation/        grounded complements / substitutes / upsell
+│  │  ├─ cart/ authorization/ order/ payment/ refund/    one service each
+│  │  ├─ analytics/             platform + merchant analytics, agentic funnel
+│  │  └─ session/               server-side session state
+│  ├─ integrations/
 │  │  ├─ llm/gemini.py          hard-timeout wrapper around the Gemini SDK
-│  │  ├─ merchants/               9 synthetic adapters + registry
-│  │  └─ razorpay/                  Mock + Real provider, MCP extension point
-│  ├─ repositories/           SQLite persistence
-│  └─ api/routes/              thin FastAPI routers
-├─ frontend/
-│  ├─ index.html               single-page shell, hash-routed
-│  ├─ js/pages/                 overview, agent, discover, merchants, orders,
-│  │                             payments, analytics, audit, settings
-│  ├─ js/components/            statCard, table, chart, timeline, cartDrawer, …
-│  └─ css/                      tokens.css design system (Zomato-derived palette/type)
-├─ tests/                     99 tests: policy/authorization engine, cart service,
-│                              catalog gateway, payment safety, real Razorpay
-│                              integration, refunds, AI tool boundary, security
-│                              boundary, external AI buyer, growth experiment
-├─ experiments/
-│  └─ growth_experiment.py    synthetic baseline-vs-AI-agent benchmark
-├─ examples/
-│  └─ ai_buyer.py              standalone external AI buyer reference client
-├─ requirements.txt
-├─ .env.example
-├─ ARCHITECTURE.md            deep module-by-module reference — start there to extend
-└─ README.md                  this file
+│  │  ├─ merchants/             9 synthetic adapters + registry (16 merchants)
+│  │  └─ razorpay/              Mock + Real provider, MCP extension point
+│  ├─ repositories/           SQLite persistence + audit log
+│  └─ api/routes/             thin FastAPI routers
+├─ frontend/                  ONE screen — no router, no pages/ directory
+│  ├─ index.html
+│  ├─ js/
+│  │  ├─ main.js                shell · landing · view switching
+│  │  ├─ conversation.js        the thread — this is the product
+│  │  ├─ voice.js               Web Speech API wrapper (STT + TTS)
+│  │  ├─ checkout.js            real Razorpay Checkout.js integration
+│  │  ├─ api.js · state.js · format.js · motion.js
+│  │  └─ components/            composer · productCard · cartDrawer · authorizationCard
+│  └─ css/                      tokens · base · app · components · effects
+├─ tests/                     99 tests
+├─ experiments/growth_experiment.py    synthetic baseline-vs-agent benchmark
+├─ examples/ai_buyer.py       standalone external AI buyer reference client
+├─ ARCHITECTURE.md            deep module-by-module reference
+└─ README.md
 ```
 
 <br/>
@@ -491,85 +677,20 @@ aalok/
 ## ▸ Quick start
 
 ```bash
-cd aalok
-pip install -r requirements.txt          # add --break-system-packages if needed
+pip install -r requirements.txt
+```
+
+```bash
 cp .env.example .env
 ```
 
-Edit `.env`: set `GEMINI_API_KEY` for the real LLM path (free at
-[aistudio.google.com/apikey](https://aistudio.google.com/apikey)) — everything falls back to
-deterministic heuristics if it's unset. `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` are optional.
+Both keys are optional — the product runs fully offline without either.
 
 ```bash
-python3 -m uvicorn backend.main:app --reload --port 8000
+python -m uvicorn backend.main:app --reload --port 8000
 ```
 
-Open `http://localhost:8000/` for the ordering agent and the rest of the dashboard. The
-badge next to the logo always shows the active payment mode.
-
-<details>
-<summary><b>Run the test suite, growth experiment, and demos</b></summary>
-
-<br/>
-
-```bash
-python3 -m pytest tests/ -v                 # 99 tests
-python3 experiments/growth_experiment.py    # baseline vs. AI-agent simulation, standalone
-python3 examples/ai_buyer.py --requirement "high-protein meal under 300"   # needs the server running
-curl -X POST http://localhost:8000/api/demo/policy-rejection               # guaranteed REJECT
-```
-
-</details>
-
-<details>
-<summary><b>Manual Razorpay Test Mode walkthrough</b></summary>
-
-<br/>
-
-1. Get test keys (prefixed `rzp_test_`) from Razorpay Dashboard → Settings → API Keys.
-   Set in `.env`:
-   ```
-   RAZORPAY_KEY_ID=rzp_test_xxxxxxxx
-   RAZORPAY_KEY_SECRET=xxxxxxxxxxxxxxxx
-   PAYMENT_PROVIDER=razorpay_test
-   ```
-2. Restart the server. The badge must read **RAZORPAY TEST MODE** (green). If keys are
-   blank/wrong with `PAYMENT_PROVIDER=razorpay_test` set, every order attempt fails loudly
-   with `Razorpay API call failed: ...` — it never silently drops to mock mode.
-3. Order something, click **Confirm & Pay** — opens the real Checkout.js window.
-4. Pay with UPI `failure@razorpay` — Checkout reports a decline; the app shows PAYMENT
-   FAILED / retryable / same Order.
-5. Click **Confirm & Pay** again — the audit trail's `order_reused` event proves it's the
-   same Razorpay Order, not a new one.
-6. Pay again with UPI `success@razorpay` — Checkout succeeds, the backend verifies the
-   signature, `payment_captured` appears with `signature_verified: true`.
-
-</details>
-
-<details>
-<summary><b>Webhook configuration</b></summary>
-
-<br/>
-
-**Local, no public URL needed** — `tests/test_razorpay_integration.py` signs a payload with
-a test secret exactly the way Razorpay does and posts it to `/api/webhook/razorpay`
-in-process, proving the signature-verification and idempotency code is correct:
-```bash
-python3 -m pytest tests/test_razorpay_integration.py -v
-```
-This does **not** prove Razorpay's real infrastructure can reach your machine — for that you
-need a live tunnel.
-
-**Live, Test Mode webhook** — this repo does not hard-code or install a tunnel:
-1. Run one yourself, e.g. `ngrok http 8000` — copy the public `https://...` URL.
-2. Razorpay Dashboard (Test Mode) → Settings → Webhooks → + Add New Webhook:
-   - **Webhook URL**: `https://<your-tunnel-domain>/api/webhook/razorpay`
-   - **Secret**: any string — paste the same value into `.env` as `RAZORPAY_WEBHOOK_SECRET`
-   - **Active events**: `payment.captured`, `payment.failed`, `order.paid`
-3. Save. Razorpay sends a test ping — check the server console and `/api/audit` for a
-   `webhook_received` event.
-
-</details>
+Open **http://localhost:8000**. That is the whole app; there are no other pages.
 
 <br/>
 
@@ -577,49 +698,13 @@ need a live tunnel.
 
 ## ▸ Configuration
 
-Every setting is read from `.env` (see [`.env.example`](.env.example)):
-
-| Variable | Purpose | Default |
+| Variable | Default | Effect |
 |---|---|---|
-| `LLM_PROVIDER` | Only `gemini` is implemented; anything else forces the deterministic fallback everywhere | `gemini` |
-| `LLM_API_KEY` / `GEMINI_API_KEY` | Enables the real agent + embeddings path | *(unset → heuristic fallback)* |
-| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | Real Razorpay Test Mode credentials | *(unset → mock mode)* |
-| `RAZORPAY_WEBHOOK_SECRET` | Required for `/api/webhook/razorpay` to accept anything | *(unset → 501)* |
-| `PAYMENT_PROVIDER` | `razorpay_test` (fails loudly if keys missing) · `mock` (force offline) · unset (infer from keys) | *(unset)* |
-| `DATABASE_URL` | SQLite only — no Postgres/Redis/Kafka/vector DB used | `sqlite:///./backend/aalok.db` |
-
-<br/>
-
----
-
-## ▸ API surface
-
-**33 REST endpoints**, grouped by concern.
-
-<details>
-<summary><b>Endpoint reference</b> (click to expand)</summary>
-
-<br/>
-
-| Area | Endpoints |
-|---|---|
-| **Agent (unified)** | `POST /api/agent/chat` |
-| **Legacy chat (food-only, pre-refactor)** | `POST /api/chat` · `POST /api/order/quick-add` |
-| **Catalog & discovery** | `GET /api/catalog` · `GET /api/catalog/feed` · `GET /api/catalog/search` · `GET /api/catalog/products/{id}` · `GET /api/catalog/{id}/complements` · `GET /api/catalog/{id}/substitutes` · `GET /api/merchants` · `GET /api/growth/experiment` |
-| **Cart** | `POST /api/cart` · `GET /api/cart/{cart_id}` · `POST /api/cart/{cart_id}/items` · `DELETE /api/cart/{cart_id}/items/{item_id}` |
-| **Orders & checkout** | `POST /api/order/confirm` · `POST /api/external/purchase` · `POST /api/demo/policy-rejection` · `GET /api/orders` · `GET /api/orders/{id}` · `POST /api/checkout/validate` · `POST /api/orders` |
-| **Payments & refunds** | `GET /api/payment-mode` · `POST /api/order/verify-payment` · `POST /api/order/payment-failed` · `POST /api/payments/create` · `GET /api/payments/{id}` · `POST /api/payments/{internal_order_id}/refund` · `GET /api/payments/refunds` · `GET /api/payments/refunds/{id}` |
-| **Webhooks** | `POST /api/webhook/razorpay` · `POST /api/webhooks/razorpay` |
-| **Analytics & audit** | `GET /api/analytics` · `GET /api/audit` |
-
-</details>
-
-```bash
-# The external-AI-buyer path — same policy gate as the chat agent, no bypass
-curl -X POST http://localhost:8000/api/external/purchase \
-  -H "Content-Type: application/json" \
-  -d '{"requirement": "high-protein meal under 300, delivered within 30 minutes"}'
-```
+| `GEMINI_API_KEY` | unset | Enables the real LLM path — intent parsing, the tool-calling loop, and semantic re-rank. Unset ⇒ deterministic keyword/regex fallback + price-ascending ranking. Everything still works. |
+| `PAYMENT_PROVIDER` | `mock` | `razorpay_test` switches to the real Test Mode API. `mock` forces offline mode even if keys are present. |
+| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | unset | Test Mode credentials (`rzp_test_*`). Required when `PAYMENT_PROVIDER=razorpay_test`, or checkout returns `provider_misconfigured`. |
+| `RAZORPAY_WEBHOOK_SECRET` | unset | Required for webhook signature verification. |
+| `DATABASE_URL` | `backend/aalok.db` | Delete the file to reset analytics/audit state. |
 
 <br/>
 
@@ -627,57 +712,65 @@ curl -X POST http://localhost:8000/api/external/purchase \
 
 ## ▸ Testing
 
-```
-pytest tests/ -v   →   99 passed
+```bash
+python -m pytest tests/ -v
 ```
 
-| File | Covers |
+**99 tests.** The ones that carry the architectural guarantees:
+
+| File | What it proves |
 |---|---|
-| `test_mandates.py` | Intent/Cart mandates, the Commerce Policy Engine's per-check breakdown |
-| `test_authorization.py` | Mandate validity, expiry, revocation, scope |
-| `test_cart_service.py` | Cart lifecycle, cross-merchant mismatch rejection |
-| `test_catalog_gateway.py` | Federated search, one merchant failing doesn't break the rest |
-| `test_payment_safety.py` | Retry reuses the same Razorpay order; a captured order short-circuits |
-| `test_razorpay_integration.py` | Signature verification, webhook idempotency, order-creation shape |
-| `test_refund.py` | Refund idempotency — a duplicate request is rejected, not duplicated |
-| `test_ai_tool_boundary.py` | The LLM's tool surface structurally cannot reach payment/DB symbols |
-| `test_security_boundary.py` | A client-supplied amount can never reach Razorpay |
-| `test_ai_buyer.py` | The external buyer path uses the *same code*, not just the same logic, as the chat agent |
-| `test_growth_experiment.py` | The synthetic baseline-vs-agent benchmark is deterministic and seeded |
-| `test_dashboard_reads.py` | Analytics/audit read paths |
+| `test_mandates.py` | Policy engine: spend/time/diet/inventory bounds; rejection happens with `razorpay_called: False` |
+| `test_authorization.py` | Mode/status/scope gating, consumption semantics |
+| `test_ai_tool_boundary.py` | The LLM tool surface cannot reach payment or DB symbols — asserted by inspecting module globals |
+| `test_security_boundary.py` | The external AI buyer has no privileged path; same gates apply |
+| `test_payment_safety.py` | Idempotency — a retry reuses the same Razorpay order |
+| `test_razorpay_integration.py` | Real signature verification, checkout + webhook HMAC |
+| `test_refund.py` | Refund idempotency |
+| `test_cart_service.py` | Cart lifecycle, server-authoritative revalidation |
+| `test_catalog_gateway.py` | Federated search across all adapters |
+| `test_ai_buyer.py` | The standalone external-buyer reference client |
+| `test_growth_experiment.py` | The synthetic benchmark |
+| `test_dashboard_reads.py` | The read-only aggregates that no longer have a screen — kept so the routes cannot rot |
 
 <br/>
 
 ---
 
-## ▸ Known limitations
+## ▸ Limitations
 
-Genuine, not additional feature ideas:
+Honest ones, not roadmap items dressed up as constraints.
 
-- **In-memory session/cart/order state** (`services/session`, `services/cart`,
-  `services/order`) — fine for a single-process prototype; production would move this to
-  Redis/a DB keyed by authenticated session.
-- **The Gemini function-calling agent loop** was not exercised against a live Gemini API in
-  every environment this was built in — every code path degrades to the deterministic
-  fallback and is exercised that way by the test suite. On a machine with normal outbound
-  HTTPS access and a real key, the LLM-driven path runs unchanged.
-- **No-LLM fallback recommendation quality** is a hard-filter + price-sort — it finds a
-  constraint-satisfying item, not necessarily the *most relevant* one.
-- **`RefundService` has no UI** — API + tests only.
-- **Live Checkout.js round-trip** was exercised via the server-side contract
-  (`tests/test_razorpay_integration.py`, monkeypatched HTTP layer, HMAC computation matching
-  Razorpay's documented formula) rather than against a live account with real test keys in
-  every build environment — the manual walkthrough above is exactly what completes that last
-  mile with real keys.
-- **Campaign orchestrator** (one of the brief's four example directions) is not implemented
-  — see [Which example direction this covers](#-which-example-direction-this-covers).
+1. **All 16 merchants are synthetic.** There is no live Swiggy/Zomato/BigBasket/Zepto
+   integration anywhere. The adapter interface is the real contribution; the seed data is
+   scaffolding.
+2. **Sessions, carts and in-flight orders are in-memory.** They do not survive a server
+   restart. Only analytics and the audit trail are persisted to SQLite. Production would need
+   a real store; this is a prototype's deliberate scope cut, not an oversight.
+3. **No authentication.** There are no user accounts. `session_id` is a client-generated
+   opaque string. Anyone who can reach the API can transact as any session.
+4. **Test Mode only.** No real money moves. Live-mode keys would need PCI scope, KYC and a
+   settlement account that are all out of scope here.
+5. **`FUTURE_AGENTIC_RESERVE` is declared but not implemented.** The authorization mode exists
+   in the enum as an extension point; there is no reserve-and-settle flow behind it.
+6. **The growth experiment is a synthetic benchmark**, labelled as such in code and output. Its
+   conversion assumptions are stated, not measured — no public benchmark splits conversion by
+   "conversational agent vs conventional flow" for this category. Order values are sampled from
+   the real seeded catalog; `time_to_cart` is illustrative only.
+7. **Voice depends on the browser.** `SpeechRecognition` is Chromium/Safari; Firefox users get
+   text input only, with the microphone correctly absent rather than broken. Chromium's
+   implementation sends audio to a Google service for transcription.
+8. **SQLite is single-writer.** Running multiple uvicorn processes against the same file will
+   produce "database is locked" under concurrent writes.
 
 <br/>
 
-### A note on the API key that was shared during development
+---
 
-The `GEMINI_API_KEY` used during development was pasted directly into a chat session.
-**Rotate/regenerate it in Google AI Studio before making this repository public** — the
-buildathon requires a public repo, and a key visible in git history or a committed `.env`
-file is a leaked credential regardless of where it originated. `.env` is already gitignored
-— double-check it never gets committed.
+<div align="center">
+
+**Aalok is incredibly simple to use, and deliberately sophisticated underneath.**
+
+The complexity is hidden behind the experience — and documented here.
+
+</div>

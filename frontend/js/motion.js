@@ -1,9 +1,10 @@
 // Single point of truth for the Motion library (motion.dev - the standalone
 // successor to Framer Motion's animation engine), loaded as a real ES
-// module straight from a CDN (same "no build step" approach already used
-// for Chart.js). Every file that wants JS-driven animation imports from
-// here instead of the CDN URL directly, so the version only needs
-// updating in one place.
+// module straight from a CDN - the project has no build step, so this is
+// the only remaining third-party frontend dependency (Chart.js went with
+// the analytics dashboard). Every file that wants JS-driven animation
+// imports from here rather than the CDN URL directly, so the version only
+// needs updating in one place.
 export { animate, stagger, spring } from "https://cdn.jsdelivr.net/npm/motion@11/+esm";
 
 import { animate as _animate, stagger as _stagger } from "https://cdn.jsdelivr.net/npm/motion@11/+esm";

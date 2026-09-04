@@ -1,8 +1,12 @@
 """
-Tests for the small, additive read-only aggregates added to support the
-new frontend dashboard (Orders/Payments/Overview/Analytics pages) - none
-of these touch cart/authorization/policy/order-creation logic, they only
-read data that already exists.
+Tests for the read-only aggregates over orders, refunds and analytics.
+
+These were originally added for the Orders/Payments/Overview/Analytics
+dashboard pages. Those pages are gone - Aalok's UI collapsed to a single
+conversational surface - but the aggregates themselves are real backend
+capability and stay covered here, so the routes cannot rot just because
+nothing renders them today. None of them touch cart/authorization/policy/
+order-creation logic; they only read data that already exists.
 """
 import os
 import sys
@@ -90,7 +94,10 @@ def test_catalog_search_route_respects_top_k():
     assert len(full_resp["results"]) > 12
 
 
-def test_analytics_page_route_serves_the_spa_shell():
-    resp = client.get("/analytics")
+def test_root_serves_the_app_shell():
+    """`/` is now the only HTML route - the standalone /analytics page route
+    went with the dashboards. The aggregates above are still exercised by
+    the tests in this file; they simply no longer have a screen."""
+    resp = client.get("/")
     assert resp.status_code == 200
     assert b'id="qb-app"' in resp.content

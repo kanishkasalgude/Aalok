@@ -10,48 +10,30 @@
       (--qb-ease).
 
    2. Its hover budget is 180ms and its hover VOCABULARY is tiny: colour,
-      border-colour, background, and a 1.03 scale on media. Cards do not
+      border-colour, background, and a small scale on media. Cards do not
       lift. There is no translateY(-4px) anywhere on the reference, so
-      there is none here either - the previous -6px lift with a 25px
-      shadow has been removed.
+      there is none here either.
 
-   3. It has no scroll-triggered fade-ins at all (verified: no reveal /
-      in-view / observer classes exist on the page). Depth comes from
+   3. It has no scroll-triggered fade-ins at all. Depth comes from
       cursor-driven parallax on decorative art instead. Content is never
       hidden waiting for a scroll position.
-   ============================================================ */
 
-/* ---- continuous decorative loops (suppressed under reduced-motion by the
-   global rule in base.css, but gated here too so they never even start) ---- */
-@media (prefers-reduced-motion: no-preference) {
-  @keyframes qb-pulse-glow {
-    0%, 100% { opacity: .55; transform: scale(1); }
-    50% { opacity: .9; transform: scale(1.03); }
-  }
-  @keyframes qb-drift {
-    0%   { transform: translate(0, 0) rotate(0deg); }
-    50%  { transform: translate(-2%, 2%) rotate(2deg); }
-    100% { transform: translate(0, 0) rotate(0deg); }
-  }
-  .qb-chat-empty-mark { animation: qb-pulse-glow 3.6s var(--qb-ease) infinite; }
-  .qb-hero-band::before { animation: qb-drift 16s var(--qb-ease) infinite; }
-}
+   The nav-icon animation set that used to make up two thirds of this file
+   went with the sidebar it decorated.
+   ============================================================ */
 
 /* ============ the hover model ============
    Everything interactive shares one transition declaration so that no two
    elements settle at different speeds. */
 .qb-btn,
-.qb-chip,
-.qb-pill,
 .qb-badge,
-.qb-nav-item,
-.qb-card,
+.qb-pill,
 .qb-product,
-.qb-stat,
-.qb-starter-card,
-.qb-devpill,
-.qb-input,
-.qb-select {
+.qb-authz-card,
+.aa-chip,
+.aa-brand,
+.aa-cart-btn,
+.qb-drawer-close {
   transition:
     background-color var(--qb-dur-micro) var(--qb-ease),
     border-color     var(--qb-dur-micro) var(--qb-ease),
@@ -60,56 +42,46 @@
 }
 
 /* Cards: border + shadow only. The surface itself never moves. */
-.qb-product:hover,
-.qb-starter-card:hover {
+.qb-product:hover {
   border-color: var(--qb-border-strong);
   box-shadow: var(--qb-shadow-raised);
 }
-
-/* Media inside a card is the only thing that scales, and only to 1.03 -
-   the exact figure the reference uses. */
-.qb-starter-preview img,
-.qb-starter-mock,
-.qb-product-thumb {
-  transition: transform var(--qb-dur-micro) var(--qb-ease);
-}
-.qb-starter-card:hover .qb-starter-mock,
-.qb-product:hover .qb-product-thumb { transform: scale(1.03); }
 
 /* Buttons: colour only, plus a 1px press. No hover lift. */
 .qb-btn-primary:active:not(:disabled),
 .qb-btn-secondary:active:not(:disabled) { transform: translateY(1px); }
 
-/* Pill / chip: background step, no transform (reference behaviour). */
-.qb-chip:hover { border-color: var(--qb-accent); color: var(--qb-accent-text); background: var(--qb-accent-soft); }
+/* Inputs: the focus ring is a soft ink halo, 3px, no glow, and no saturated
+   colour - the reference reserves colour for the gradient orbs alone. */
+.aa-composer:focus-within { box-shadow: 0 0 0 3px var(--qb-accent-soft), var(--qb-shadow-raised); }
+.aa-ask:focus-within { box-shadow: 0 0 0 3px var(--qb-accent-soft), var(--qb-shadow-raised); }
 
-/* Sidebar nav: background + colour. */
-.qb-nav-item:hover { background: var(--qb-shell-bg-raised); color: #fff; }
+/* The cart count pops when an item lands in it - a 180ms confirmation that
+   the click did something, without a toast. */
+@keyframes aa-count-pop {
+  0%   { transform: scale(1); }
+  45%  { transform: scale(1.32); }
+  100% { transform: scale(1); }
+}
+.aa-cart-count.bumped { animation: aa-count-pop 320ms var(--qb-ease); }
 
-.qb-table tbody tr { transition: background-color var(--qb-dur-micro) var(--qb-ease); }
-
-/* Inputs: the focus ring is a soft brand-tinted halo, 3px, no glow. */
-.qb-topbar-search input,
-.qb-chat-composer { transition: border-color var(--qb-dur-micro) var(--qb-ease), box-shadow var(--qb-dur-micro) var(--qb-ease); }
-.qb-topbar-search input:focus { box-shadow: 0 0 0 3px var(--qb-accent-soft); background: #fff; }
-.qb-chat-composer:focus-within { box-shadow: 0 0 0 3px var(--qb-accent-soft); }
-
-.qb-chat-send-btn { transition: background-color var(--qb-dur-micro) var(--qb-ease), transform var(--qb-dur-micro) var(--qb-ease); }
-.qb-chat-send-btn:hover:not(:disabled) { transform: scale(1.04); }
-.qb-chat-send-btn:active:not(:disabled) { transform: scale(0.94); }
-
-/* Arrow nudge: the small "→" in links and actions slides 2px on hover.
-   Cheap, and one of the details that reads as considered. */
-.qb-starter-action svg,
-.qb-arrow-nudge svg { transition: transform var(--qb-dur-micro) var(--qb-ease); }
-.qb-starter-card:hover .qb-starter-action svg,
-.qb-arrow-nudge:hover svg { transform: translateX(2px); }
-
-/* Overlays keep the slightly longer UI duration. */
-.qb-drawer { transition: transform var(--qb-dur-ui) var(--qb-ease); }
-.qb-drawer-backdrop { transition: opacity var(--qb-dur-ui) var(--qb-ease); }
-
-.qb-env-dot.mode-test { animation: none; box-shadow: 0 0 0 3px rgba(22,163,74,0.18); }
+/* The agent's thinking state. A three-dot cycle rather than a spinner: it
+   reads as composition rather than as loading, which is what is actually
+   happening while the catalog is searched and ranked. */
+.aa-thinking { display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; }
+.aa-thinking span {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--qb-text-muted);
+  animation: aa-thinking-bob 1.2s var(--qb-ease) infinite;
+}
+.aa-thinking span:nth-child(2) { animation-delay: .15s; }
+.aa-thinking span:nth-child(3) { animation-delay: .3s; }
+@keyframes aa-thinking-bob {
+  0%, 60%, 100% { opacity: .35; transform: translateY(0); }
+  30%           { opacity: 1;   transform: translateY(-3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aa-thinking span { animation: none; opacity: .6; }
+}
 
 /* ============ cursor parallax ============
    Decorative hero art drifts toward the pointer. The essential detail from
@@ -136,135 +108,4 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .qb-par { transform: none !important; }
-}
-
-/* ============ animated icon effects ============
-   Icons in the navigation get subtle continuous animations to bring
-   the UI to life. Each animation is staggered and respects reduced-motion. */
-@media (prefers-reduced-motion: no-preference) {
-  @keyframes icon-pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.8; transform: scale(0.95); }
-  }
-  @keyframes icon-bounce {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-2px); }
-  }
-  @keyframes icon-rotate {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-  @keyframes icon-spin-slow {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-  @keyframes icon-float {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-2px); }
-  }
-  @keyframes bar-grow-1 {
-    0%, 100% { transform: scaleY(0.6); }
-    50% { transform: scaleY(1); }
-  }
-  @keyframes bar-grow-2 {
-    0%, 100% { transform: scaleY(1); }
-    50% { transform: scaleY(0.5); }
-  }
-  @keyframes bar-grow-3 {
-    0%, 100% { transform: scaleY(0.8); }
-    50% { transform: scaleY(1); }
-  }
-  @keyframes scan {
-    0%, 100% { stroke-dashoffset: 0; }
-    50% { stroke-dashoffset: -10; }
-  }
-
-  /* Overview: staggered pulse on dashboard boxes */
-  .qb-nav-item[data-path="/overview"] .icon-group-1,
-  .qb-nav-item[data-path="/overview"] .icon-group-3 {
-    animation: icon-pulse 2s var(--qb-ease) infinite;
-  }
-  .qb-nav-item[data-path="/overview"] .icon-group-2,
-  .qb-nav-item[data-path="/overview"] .icon-group-4 {
-    animation: icon-pulse 2s var(--qb-ease) infinite 0.3s both;
-  }
-
-  /* AI Agent: floating person icon */
-  .qb-nav-item[data-path="/agent"] .icon-head {
-    animation: icon-float 3s var(--qb-ease) infinite;
-  }
-  .qb-nav-item[data-path="/agent"] .icon-body {
-    animation: icon-float 3s var(--qb-ease) infinite 0.2s;
-  }
-
-  /* Discover: rotating magnifying glass */
-  .qb-nav-item[data-path="/discover"] .icon-circle {
-    transform-origin: center;
-    animation: icon-rotate 4s var(--qb-ease) infinite;
-  }
-  .qb-nav-item[data-path="/discover"] .icon-line {
-    animation: icon-rotate 4s var(--qb-ease) infinite;
-  }
-
-  /* Merchants: subtle building pulse */
-  .qb-nav-item[data-path="/merchants"] .icon-roof {
-    animation: icon-pulse 2.5s var(--qb-ease) infinite;
-  }
-  .qb-nav-item[data-path="/merchants"] .icon-door {
-    animation: icon-pulse 2.5s var(--qb-ease) infinite 0.4s;
-  }
-
-  /* Orders: bouncing document */
-  .qb-nav-item[data-path="/orders"] .icon-document {
-    animation: icon-bounce 2s var(--qb-ease) infinite;
-  }
-  .qb-nav-item[data-path="/orders"] .icon-lines {
-    animation: icon-bounce 2s var(--qb-ease) infinite 0.1s;
-  }
-
-  /* Payments: card flip effect */
-  .qb-nav-item[data-path="/payments"] .icon-card {
-    animation: icon-pulse 2s var(--qb-ease) infinite;
-  }
-  .qb-nav-item[data-path="/payments"] .icon-stripe {
-    animation: icon-pulse 2s var(--qb-ease) infinite 0.25s;
-  }
-
-  /* Analytics: bars growing and shrinking */
-  .qb-nav-item[data-path="/analytics"] .icon-bar-1 {
-    transform-origin: bottom;
-    animation: bar-grow-1 2.5s var(--qb-ease) infinite;
-  }
-  .qb-nav-item[data-path="/analytics"] .icon-bar-2 {
-    transform-origin: bottom;
-    animation: bar-grow-2 2.5s var(--qb-ease) infinite;
-  }
-  .qb-nav-item[data-path="/analytics"] .icon-bar-3 {
-    transform-origin: bottom;
-    animation: bar-grow-3 2.5s var(--qb-ease) infinite;
-  }
-
-  /* Audit Trail: gentle document pulse */
-  .qb-nav-item[data-path="/audit"] .icon-document {
-    animation: icon-pulse 2.5s var(--qb-ease) infinite;
-  }
-  .qb-nav-item[data-path="/audit"] .icon-text {
-    animation: icon-pulse 2.5s var(--qb-ease) infinite 0.2s;
-  }
-
-  /* Settings: spinning gear */
-  .qb-nav-item[data-path="/settings"] .icon-gear {
-    transform-origin: center;
-    animation: icon-spin-slow 6s var(--qb-ease) infinite;
-  }
-  .qb-nav-item[data-path="/settings"] .icon-center {
-    animation: icon-pulse 3s var(--qb-ease) infinite;
-  }
-}
-
-/* Ensure animations don't affect the icon size or layout */
-.animated-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
 }

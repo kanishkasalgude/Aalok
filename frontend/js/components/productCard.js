@@ -1,4 +1,4 @@
-import { money, categoryEmoji, categoryTint, escapeHtml } from "../format.js";
+import { money, categoryIcon, categoryTint, escapeHtml } from "../format.js";
 
 // Renders only attribute keys that actually exist on this product - never
 // invents a category-specific field the backend didn't provide.
@@ -51,7 +51,7 @@ export function productCard(product, { showMerchant = true, actionLabel = "Add t
     <div class="qb-product" data-product-id="${escapeHtml(product.product_id)}" data-merchant-id="${escapeHtml(product.merchant_id)}">
       <div class="qb-product-top">
         <div style="display:flex; gap:10px; min-width:0;">
-          <div class="qb-icon-circle ${categoryTint(product.category)}">${categoryEmoji(product.category)}</div>
+          <div class="qb-icon-circle ${categoryTint(product.category)}">${categoryIcon(product.category)}</div>
           <div style="min-width:0;">
             <div class="qb-product-title qb-title-accent qb-truncate" title="${escapeHtml(product.title)}">${escapeHtml(product.title)}</div>
             ${showMerchant ? `<div class="qb-product-merchant qb-truncate">${escapeHtml(product.merchant_name)} · ${escapeHtml(product.category)}</div>` : ""}
@@ -64,7 +64,7 @@ export function productCard(product, { showMerchant = true, actionLabel = "Add t
       <div class="qb-product-attrs">${attrChips(product)}</div>
       <div class="qb-product-meta">
         ${availPill}
-        ${deliveryLabel ? `<span>🚚 ${deliveryLabel}</span>` : ""}
+        ${deliveryLabel ? `<span>${deliveryLabel}</span>` : ""}
       </div>
       <div class="qb-product-actions">
         <button class="qb-btn qb-btn-primary qb-btn-block qb-btn-sm" data-action="add-to-cart"

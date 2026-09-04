@@ -13,7 +13,6 @@ export const state = {
   merchants: [],
   merchantsById: {},
   carts: {}, // merchant_id -> cart_id (client only tracks WHICH cart to add to; server owns contents)
-  lastAuditTrail: [],
 };
 
 localStorage.setItem("qb_session_id", state.sessionId);

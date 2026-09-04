@@ -1,109 +1,96 @@
-/* Aalok design tokens.
+/* Aalok design tokens — editorial system.
 
-   Retuned against a reverse-engineered reading of Razorpay's docs site: its
-   type system (oversized extralight display, tight negative tracking), its
-   restraint with colour (near-white surfaces, pastel tints under 50% alpha,
-   never a saturated gradient), its tight radius scale, its tinted-not-grey
-   shadows, and - most importantly - its motion constants: ONE easing curve
-   and a 180ms micro-interaction budget.
+   Retuned against a documented design-system reference (an editorial,
+   print-magazine-adjacent voice-AI brand): off-white canvas, warm
+   near-black ink, a single ink-pill CTA color (never a saturated brand
+   accent), pastel atmospheric gradient orbs as the ONLY color event, a
+   light-weight serif for display copy against Inter for everything read
+   at length, hairline borders, one soft shadow tier, and pill/xl geometry.
 
-   Aalok keeps its own identity throughout: a teal accent, never Razorpay's
-   blue or logo. The reference's own deep-teal dark surface (#002a29) happens
-   to sit naturally alongside that, so the dark sections use it directly. */
+   The licensed display face (Waldenburg Light) is substituted with EB
+   Garamond at the same weight (300) — see index.html for the font load
+   and ARCHITECTURE.md/README.md for the substitution note. */
 :root {
   /* ---- surfaces ---- */
-  --qb-bg: #FFFFFF;
+  --qb-bg: #F5F5F5;
   --qb-surface: #FFFFFF;
   --qb-surface-raised: #FFFFFF;
-  --qb-surface-sunken: #F3F5F7;
+  --qb-surface-sunken: #F0EFED;
+  --qb-canvas-soft: #FAFAFA;
 
-  /* ---- text: a four-stop ink ramp, not six greys ---- */
-  --qb-text: #192839;
-  --qb-text-secondary: #616D75;
-  --qb-text-muted: #9AA3A9;
-  --qb-text-inverse: #F8FAFC;
+  /* ---- text: ink ramp, warm not blue-grey ---- */
+  --qb-text: #0C0A09;
+  --qb-text-secondary: #4E4E4E;
+  --qb-text-muted: #777169;
+  --qb-text-disabled: #A8A29E;
+  --qb-text-inverse: #FFFFFF;
 
-  /* ---- borders: hairline. 0.5px on the card itself, like the reference ---- */
-  --qb-border: #E5E7EB;
-  --qb-border-strong: #C8CDD0;
+  /* ---- borders: hairline ---- */
+  --qb-border: #E7E5E4;
+  --qb-border-soft: #F0EFED;
+  --qb-border-strong: #D6D3D1;
 
-  /* ---- brand accent (Aalok's own teal) ---- */
-  --qb-accent: #0D9488;
-  --qb-accent-hover: #0F766E;
-  --qb-accent-soft: #E6F5F3;
-  --qb-accent-text: #0F766E;
-  --qb-accent-2: #0EA5E9;
-  --qb-accent-2-soft: #E8EEFE;
+  /* ---- the one CTA color: warm near-black. No saturated brand accent. ----
+     Kept under the old --qb-accent-* names so every component that already
+     asks for "the accent" gets the ink pill without a rename pass. */
+  --qb-accent: #292524;
+  --qb-accent-hover: #0C0A09;
+  --qb-accent-soft: #F0EFED;
+  --qb-accent-text: #0C0A09;
 
-  /* ---- pastel tints ----
-     The reference never paints a saturated gradient: its panel wash is two
-     stops, both under 50% alpha, on a white ground. These mirror that
-     construction with Aalok's teal-leaning hues. */
-  --qb-tint-panel: linear-gradient(205.78deg, rgba(120, 178, 200, 0.42) 25.575%, rgba(159, 255, 190, 0.18) 97.045%);
-  --qb-tint-panel-soft: linear-gradient(183.64deg, rgba(120, 178, 200, 0.34) 25.575%, rgba(159, 255, 190, 0.07) 97.045%);
-  --qb-shelf-gradient: var(--qb-tint-panel-soft);
-  /* The hero wash. The reference's hero is a LIGHT pastel field carrying
-     dark ink - not white type on a saturated band. Keeping the ground pale
-     is what lets an extralight 80px headline stay legible and is most of
-     why the page reads as expensive rather than loud. */
-  --qb-hero-gradient: linear-gradient(158deg, #CFE4F2 0%, #DCEFEA 46%, #EAF6EC 100%);
-  --qb-dark-gradient: linear-gradient(160deg, #002A29 0%, #0C3131 100%);
+  /* ---- atmospheric gradient stops (the signature) ----
+     Used ONLY as soft radial-gradient orbs — hero atmosphere and the
+     product-category icon plates. Never a button fill, never a text
+     color, never a flat component background. */
+  --qb-gradient-mint: #A7E5D3;
+  --qb-gradient-peach: #F4C5A8;
+  --qb-gradient-lavender: #C8B8E0;
+  --qb-gradient-sky: #A8C8E8;
+  --qb-gradient-rose: #E8B8C4;
 
-  /* ---- dark surfaces (agents band + shell), from the reference ---- */
-  --qb-dark-bg: #002A29;
-  --qb-dark-raised: #0C3131;
-  --qb-dark-border: rgba(121, 135, 156, 0.18);
-  --qb-dark-card: rgba(255, 255, 255, 0.04);
-
-  /* ---- dark shell (sidebar) ---- */
-  --qb-shell-bg: #002A29;
-  --qb-shell-bg-raised: #0C3131;
-  --qb-shell-border: rgba(121, 135, 156, 0.18);
-  --qb-shell-text: #A9BEBB;
-  --qb-shell-text-muted: #6B8481;
-  --qb-shell-text-active: #FFFFFF;
+  /* ---- icon-plate tints ----
+     Product-category icon circles borrow the five gradient stops as soft
+     pastel plates (bg) with a deeper ink-tinted hue (fg) for any non-emoji
+     glyph - the one place outside the hero atmosphere those colors touch a
+     component surface, and even there only as a quiet tint, never a fill
+     behind interactive controls. */
+  --qb-icon-mint-bg: #E3F5EF;     --qb-icon-mint-fg: #1C7350;
+  --qb-icon-peach-bg: #FBEBE0;    --qb-icon-peach-fg: #9A4B24;
+  --qb-icon-lavender-bg: #EFEAF6; --qb-icon-lavender-fg: #5B3E8E;
+  --qb-icon-sky-bg: #E7F0F9;      --qb-icon-sky-fg: #2B5E93;
+  --qb-icon-rose-bg: #FAEAED;     --qb-icon-rose-fg: #9A3B52;
 
   /* ---- semantic ---- */
   --qb-success: #16A34A;
-  --qb-success-soft: #D9F5E0;
-  --qb-warning: #D97706;
+  --qb-success-soft: #DCFCE7;
+  --qb-warning: #B45309;
   --qb-warning-soft: #FEF3C7;
   --qb-danger: #DC2626;
   --qb-danger-soft: #FEE2E2;
-  --qb-info: #305EFF;
-  --qb-info-soft: #E8EEFE;
-  --qb-neutral: #616D75;
-  --qb-neutral-soft: #F3F5F7;
-
-  /* ---- icon-circle tints ---- */
-  --qb-icon-teal-bg: #E6F5F3; --qb-icon-teal-fg: #0F766E;
-  --qb-icon-blue-bg: #E8EEFE; --qb-icon-blue-fg: #2B4FD6;
-  --qb-icon-green-bg: #D9F5E0; --qb-icon-green-fg: #1C7340;
-  --qb-icon-amber-bg: #FEF3C7; --qb-icon-amber-fg: #B45309;
-  --qb-icon-violet-bg: #EDE9FE; --qb-icon-violet-fg: #6D28D9;
-  --qb-icon-rose-bg: #FFE4E6; --qb-icon-rose-fg: #BE123C;
 
   /* ================= typography =================
-     Four roles, matching the reference's split. The display hero is the
-     signature: extralight (200) at a large size with ~-0.06em tracking -
-     the inverse of a bold dashboard title. */
+     Two roles. Waldenburg Light (EB Garamond substitute) at weight 300
+     carries every display size — the editorial signature, never bold.
+     Inter carries body, navigation, captions and buttons, at a slightly
+     looser tracking (+0.15-0.18px) than its default. */
   --qb-font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --qb-font-display: "Instrument Sans", "Inter", system-ui, sans-serif;
-  --qb-font-hero: "Inter Tight", "Inter", system-ui, sans-serif;
-  --qb-font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --qb-font-display: "EB Garamond", "Times New Roman", Georgia, serif;
+  --qb-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
   --qb-fs-xs: 12px;
-  --qb-fs-sm: 13px;
-  --qb-fs-base: 14px;
-  --qb-fs-md: 16px;
+  --qb-fs-sm: 14px;
+  --qb-fs-base: 16px;
+  --qb-fs-md: 18px;
   --qb-fs-lg: 20px;
-  --qb-fs-xl: 28px;
-  /* Page/section display heading - 48px at 1440px, tracking -0.05em */
-  --qb-fs-display: clamp(30px, 3.6vw, 48px);
-  /* The oversized marketing hero - 80px at full width, down to 40px on phones */
-  --qb-fs-hero: clamp(40px, 6.2vw, 80px);
+  --qb-fs-xl: 24px;
+  /* Section-scale display — 36px, tightening as it grows */
+  --qb-fs-display: clamp(26px, 3vw, 36px);
+  /* The oversized marketing hero — now a full-bleed page, not a bounded
+     card, so it earns a genuinely oversized headline: 104px at full
+     width, down to 40px on phones. */
+  --qb-fs-hero: clamp(40px, 9vw, 104px);
 
-  /* ---- spacing (8px grid) ---- */
+  /* ---- spacing (4px base, per the reference) ---- */
   --qb-space-1: 4px;
   --qb-space-2: 8px;
   --qb-space-3: 12px;
@@ -111,23 +98,23 @@
   --qb-space-5: 20px;
   --qb-space-6: 24px;
   --qb-space-8: 32px;
-  --qb-space-10: 40px;
-  --qb-space-12: 52px;
+  --qb-space-10: 48px;
+  --qb-space-12: 64px;
+  --qb-space-section: 96px;
 
-  /* ---- radius: a tight three-stop scale ---- */
+  /* ---- radius: hairline cards + pill everything interactive ---- */
   --qb-radius-sm: 6px;
   --qb-radius: 8px;
   --qb-radius-lg: 12px;
-  --qb-radius-xl: 12px;
-  --qb-radius-full: 999px;
+  --qb-radius-xl: 16px;
+  --qb-radius-xxl: 24px;
+  --qb-radius-full: 9999px;
 
-  /* ---- shadow: tinted toward the brand hue, never neutral grey, and
-     never larger than it needs to be. The reference's resting card shadow
-     is a 4px blur at 8% alpha - that is the whole effect. ---- */
-  --qb-shadow-sm: 0 1px 2px rgba(13, 100, 110, 0.06);
-  --qb-shadow: 0 2px 4px rgba(13, 100, 110, 0.08);
-  --qb-shadow-raised: 0 4px 10px rgba(13, 100, 110, 0.10);
-  --qb-shadow-lg: 0 12px 32px rgba(0, 42, 41, 0.14);
+  /* ---- shadow: a single soft tier, neutral not tinted ---- */
+  --qb-shadow-sm: 0 1px 2px rgba(12, 10, 9, 0.03);
+  --qb-shadow: 0 4px 16px rgba(12, 10, 9, 0.04);
+  --qb-shadow-raised: 0 4px 16px rgba(12, 10, 9, 0.06);
+  --qb-shadow-lg: 0 20px 48px rgba(12, 10, 9, 0.14);
 
   /* ================= motion =================
      ONE easing curve for everything, and a small set of durations. Anything
@@ -138,10 +125,12 @@
   --qb-dur-entrance: 420ms;/* first-paint slide-ins */
   --qb-stagger: 45ms;
 
-  --qb-sidebar-w: 232px;
-  --qb-topbar-h: 56px;
-  /* Content measure, mirroring the reference's 1440 / 64 pairing */
-  --qb-max: 1440px;
+  --qb-header-h: 64px;
+  /* The conversation's measure. Wide enough for a two-up product grid,
+     narrow enough that a line of agent prose stays readable. */
+  --qb-thread-w: 860px;
+  /* Content measure, mirroring the reference's ~1200px cap */
+  --qb-max: 1200px;
   --qb-pad: 24px;
 }
 
