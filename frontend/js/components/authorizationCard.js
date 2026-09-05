@@ -71,8 +71,16 @@ export function authorizationCard({ authorizationDecision, decision, cartMandate
 
   let authzRows = "";
   if (authorizationDecision) {
+    // authorizationDecision.status is the raw enum value (active/revoked/
+    // consumed) - it does NOT flip to a distinct value when the authorization
+    // is merely past its expires_at, so this label falls back to the
+    // per-check expiry result rather than showing "Active" beside a BLOCKED
+    // decision caused by expiry.
+    const expiryCheck = authorizationDecision.checks && authorizationDecision.checks.expiry;
+    const label = (authorizationDecision.status === "active" && expiryCheck && expiryCheck.status === "FAIL")
+      ? "Expired" : titleCase(authorizationDecision.status);
     authzRows += `
-      <div class="qb-authz-row"><span class="qb-authz-row-label">Authorization</span><span class="qb-authz-row-value">${titleCase(authorizationDecision.status)}</span></div>
+      <div class="qb-authz-row"><span class="qb-authz-row-label">Authorization</span><span class="qb-authz-row-value">${label}</span></div>
     `;
   }
   if (merchant) {
@@ -93,18 +101,42 @@ export function authorizationCard({ authorizationDecision, decision, cartMandate
   const passSentence = passed && budgetCheck
     ? `<div class="qb-authz-lead">${money(budgetCheck.cart_total)} is within your ${money(budgetCheck.maximum)} spending limit. All required checks passed.</div>`
     : "";
+  const authId = authorizationDecision ? authorizationDecision.authorization_id : null;
 
   return `
     <div class="qb-authz-card">
       <div class="qb-authz-head ${passed ? "pass" : "reject"}">
-        <span class="qb-authz-head-title">${passed ? CHECK_ICON : CROSS_ICON}${passed ? "Authorization passed" : "Authorization / Policy rejected"}</span>
+        <span class="qb-authz-head-title">${passed ? CHECK_ICON : CROSS_ICON}${passed ? "PURCHASE AUTHORIZED" : "PURCHASE BLOCKED"}</span>
+        ${authId ? `<span class="qb-authz-id">${authId.toUpperCase()}</span>` : ""}
       </div>
       <div class="qb-authz-body">
         ${passSentence}
         ${authzRows}
         ${policyRows}
-        ${!passed && reason ? `<div class="qb-authz-reject-note"><strong>${reason}</strong><br/>No Razorpay order was created. No money moved.</div>` : ""}
+        ${!passed && reason ? `<div class="qb-authz-reject-note"><strong>${reason}</strong></div>` : ""}
       </div>
     </div>
   `;
+}
+
+/**
+ * The RAZORPAY CALLED / MONEY MOVED banner - deliberately separate from the
+ * card above and used everywhere a checkout outcome is shown (cart drawer,
+ * conversation upsell flow, Demo Control Panel), so a judge sees the exact
+ * same unmistakable, real-fields-only distinction no matter which path
+ * produced the result. `data` is any real checkout response
+ * (razorpay_called: bool, status: string) - never guessed client-side.
+ */
+export function moneyBanner(data) {
+  const called = !!data.razorpay_called;
+  const captured = data.status === "success";
+  const awaiting = data.status === "awaiting_checkout";
+  const movedText = captured ? "YES — captured" : awaiting ? "NOT YET — awaiting Test Mode checkout" : "NO";
+  const movedClass = captured ? "danger" : awaiting ? "info" : "success";
+  const calledClass = called ? "danger" : "success";
+  return `
+    <div class="qb-money-banner">
+      <div class="qb-money-row"><span>RAZORPAY CALLED</span><strong class="${calledClass}">${called ? "YES" : "NO"}</strong></div>
+      <div class="qb-money-row"><span>MONEY MOVED</span><strong class="${movedClass}">${movedText}</strong></div>
+    </div>`;
 }

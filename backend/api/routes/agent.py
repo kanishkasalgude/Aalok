@@ -23,10 +23,9 @@ session.recommendations holds, never assuming food.
 """
 from __future__ import annotations
 
-import uuid
 from typing import Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from ...domain.audit import events
@@ -34,7 +33,8 @@ from ...domain.commerce.mandates import IntentMandate
 from ...repositories import audit_repo
 from ...services.agent.commerce_agent import DEFAULT_MAX_AMOUNT, DEFAULT_MAX_DELIVERY_MIN, run_commerce_agent
 from ...services.agent.intent import parse_intent
-from .chat import _store_recommendation
+from ...services.session.auth import VerifiedSession, check_body_session_id, require_session
+from .chat import _log_upsell_offered, _store_recommendation
 
 router = APIRouter()
 
@@ -72,8 +72,9 @@ def _reply_text(agent_result: dict, merchant_count: int) -> str:
 
 
 @router.post("/api/agent/chat")
-def agent_chat(req: AgentChatRequest):
-    session_id = req.session_id or f"sess-{uuid.uuid4().hex[:10]}"
+def agent_chat(req: AgentChatRequest, verified: VerifiedSession = Depends(require_session)):
+    check_body_session_id(req.session_id, verified)
+    session_id = verified.session_id
 
     intent = parse_intent(req.message)
     if req.category_override:
@@ -107,11 +108,13 @@ def agent_chat(req: AgentChatRequest):
         "upsell_product_id": agent_result["upsell"]["product_id"] if agent_result["upsell"] else None,
         "primary_reasoning": agent_result["primary_reasoning"], "upsell_reasoning": agent_result["upsell_reasoning"],
     })
+    _log_upsell_offered(session_id, agent_result)
 
     _store_recommendation(session_id, mandate, agent_result)
 
     return {
         "session_id": session_id,
+        "session_token": verified.token,
         "reply": _reply_text(agent_result, merchant_count),
         "intent": intent.to_dict(),
         "intent_mandate": mandate.to_dict(),

@@ -13,10 +13,9 @@ fully generalized Product/commerce_agent pipeline, scoped to category="food".
 """
 from __future__ import annotations
 
-import uuid
 from typing import Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from ...domain.audit import events
@@ -30,6 +29,7 @@ from ...services.authorization.service import AuthorizationService
 from ...services.catalog import gateway
 from ...services.recommendation import service as recommendation_service
 from ...services.session.store import session_store
+from ...services.session.auth import VerifiedSession, check_body_session_id, require_session
 from ._legacy import product_to_dish_dict
 
 router = APIRouter()
@@ -57,9 +57,26 @@ def _store_recommendation(session_id: str, mandate: IntentMandate, agent_result:
     session.recommendations = agent_result
 
 
+def _log_upsell_offered(session_id: str, agent_result: dict) -> None:
+    """UPSELL_OFFERED (Track 01 Phase 7) - fires the moment a grounded
+    complement is surfaced alongside a recommendation, regardless of
+    whether the buyer goes on to accept it. See
+    services/recommendation/service.py::select_grounded_upsell for how the
+    pairing itself is grounded in merchant-declared relationships, never
+    invented by the LLM."""
+    upsell = agent_result.get("upsell")
+    if not upsell:
+        return
+    audit_repo.log_event(session_id, events.UPSELL_OFFERED, "success", {
+        "primary_product_id": agent_result["primary"]["product_id"] if agent_result.get("primary") else None,
+        "upsell_product_id": upsell["product_id"],
+    })
+
+
 @router.post("/api/chat")
-def chat(req: ChatRequest):
-    session_id = req.session_id or f"sess-{uuid.uuid4().hex[:10]}"
+def chat(req: ChatRequest, verified: VerifiedSession = Depends(require_session)):
+    check_body_session_id(req.session_id, verified)
+    session_id = verified.session_id
 
     intent = parse_intent(req.message)
     intent.category = ["food"]  # this legacy entry point is scoped to the food vertical
@@ -90,12 +107,13 @@ def chat(req: ChatRequest):
         "upsell_product_id": agent_result["upsell"]["product_id"] if agent_result["upsell"] else None,
         "primary_reasoning": agent_result["primary_reasoning"], "upsell_reasoning": agent_result["upsell_reasoning"],
     })
+    _log_upsell_offered(session_id, agent_result)
 
     _store_recommendation(session_id, mandate, agent_result)
 
     if agent_result["primary"] is None:
         return {
-            "session_id": session_id,
+            "session_id": session_id, "session_token": verified.token,
             "reply": "I couldn't find anything matching all of those constraints — want to relax the budget or time limit?",
             "intent_mandate": mandate.to_dict(), "primary": None, "upsell": None, "candidates": [],
         }
@@ -108,18 +126,19 @@ def chat(req: ChatRequest):
         reply_parts.append(f" You could add the {upsell['name']} (₹{upsell['price']}) — {agent_result['upsell_reasoning']}")
 
     return {
-        "session_id": session_id, "reply": " ".join(reply_parts), "intent_mandate": mandate.to_dict(),
-        "primary": primary, "upsell": upsell,
+        "session_id": session_id, "session_token": verified.token, "reply": " ".join(reply_parts),
+        "intent_mandate": mandate.to_dict(), "primary": primary, "upsell": upsell,
         "candidates": [product_to_dish_dict(c) for c in agent_result["candidates"]],
     }
 
 
 @router.post("/api/order/quick-add")
-def quick_add(req: QuickAddRequest):
-    session_id = req.session_id or f"sess-{uuid.uuid4().hex[:10]}"
+def quick_add(req: QuickAddRequest, verified: VerifiedSession = Depends(require_session)):
+    check_body_session_id(req.session_id, verified)
+    session_id = verified.session_id
     primary = gateway.get_product(req.item_id)
     if primary is None:
-        return {"error": f"Unknown item_id '{req.item_id}'."}
+        return {"error": f"Unknown item_id '{req.item_id}'.", **verified.as_response_fields()}
 
     effective_max_amount = req.budget_override or DEFAULT_MAX_AMOUNT
     mandate = IntentMandate.create(session_id=session_id, max_amount=effective_max_amount,
@@ -146,11 +165,13 @@ def quick_add(req: QuickAddRequest):
         "upsell_product_id": grounded.product_id if grounded else None,
         "primary_reasoning": primary_reasoning, "upsell_reasoning": upsell_reasoning,
     })
+    _log_upsell_offered(session_id, agent_result)
 
     _store_recommendation(session_id, mandate, agent_result)
 
     return {
-        "session_id": session_id, "reply": primary_reasoning, "intent_mandate": mandate.to_dict(),
+        "session_id": session_id, "session_token": verified.token, "reply": primary_reasoning,
+        "intent_mandate": mandate.to_dict(),
         "primary": product_to_dish_dict(agent_result["primary"]), "upsell": product_to_dish_dict(agent_result["upsell"]),
         "candidates": [product_to_dish_dict(agent_result["primary"])],
     }

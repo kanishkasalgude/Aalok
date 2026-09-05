@@ -12,10 +12,10 @@
 import { api } from "./api.js";
 import { state } from "./state.js";
 import { productCard } from "./components/productCard.js";
-import { authorizationCard } from "./components/authorizationCard.js";
+import { authorizationCard, moneyBanner } from "./components/authorizationCard.js";
 import { auditTrailDisclosure } from "./components/auditTrail.js";
 import { micButtonHtml, wireVoiceButton, SEND_ICON } from "./components/composer.js";
-import { escapeHtml, brandMark } from "./format.js";
+import { money, escapeHtml, brandMark } from "./format.js";
 import { speak, stopSpeaking } from "./voice.js";
 import { fadeInUp, staggerIn, tapBounce } from "./motion.js";
 
@@ -23,6 +23,7 @@ import { fadeInUp, staggerIn, tapBounce } from "./motion.js";
 let thread = [];
 let busy = false;
 let teardownVoice = null;
+let turnSeq = 0;
 
 export function isConversationEmpty() {
   return thread.length === 0;
@@ -34,6 +35,35 @@ export function resetConversation() {
 }
 
 /* ---------------- rendering ---------------- */
+
+/** The merchant-grounded upsell offer (Track 01 Phase 9) - the relationship
+ *  itself was never LLM-invented (see services/recommendation/service.py::
+ *  select_grounded_upsell); this only renders the real Product Aalok's
+ *  agent already surfaced and wires an actual Add/No thanks decision to
+ *  it, via the same POST /api/order/confirm every other confirm path uses. */
+function upsellHtml(msg) {
+  if (!msg.upsell) return "";
+  const u = msg.upsell;
+  if (msg.upsellStatus === "accepted" || msg.upsellStatus === "declined") {
+    return `<div class="qb-note ${msg.upsellStatus === "accepted" ? "success" : "neutral"}" style="margin-top:10px;">
+      ${msg.upsellStatus === "accepted" ? `Added ${escapeHtml(u.title)} and completed checkout.` : "Upsell declined — checked out the primary item only."}
+    </div>`;
+  }
+  const busy = msg.upsellStatus === "resolving";
+  return `
+    <div class="qb-upsell-card" data-turn-id="${msg.id}">
+      <div class="qb-upsell-head">Merchant-defined complementary item</div>
+      <div class="qb-upsell-body">
+        <span class="qb-upsell-title">${escapeHtml(u.title)}</span>
+        <span class="qb-upsell-price">${money(u.price, u.currency)}</span>
+      </div>
+      <div class="qb-upsell-reason">Frequently configured as a complementary product with what you just picked — not an AI suggestion, a real merchant-declared relationship.</div>
+      <div class="qb-upsell-actions">
+        <button class="qb-btn qb-btn-primary qb-btn-sm" data-action="upsell-accept" data-turn-id="${msg.id}" ${busy ? "disabled" : ""}>Add for ${money(u.price, u.currency)}</button>
+        <button class="qb-btn qb-btn-ghost qb-btn-sm" data-action="upsell-decline" data-turn-id="${msg.id}" ${busy ? "disabled" : ""}>No thanks</button>
+      </div>
+    </div>`;
+}
 
 function turnHtml(msg) {
   if (msg.role === "user") {
@@ -50,6 +80,7 @@ function turnHtml(msg) {
       <div class="qb-msg-bubble">${body}</div>
     </div>
     ${attachment}
+    ${upsellHtml(msg)}
     ${products}
   `;
 }
@@ -123,7 +154,10 @@ export async function sendMessage(text, { viaVoice = false } = {}) {
     thread.push({ role: "ai", text: "I couldn't reach the commerce agent just then. Try that again in a moment." });
   } else {
     const d = res.data;
-    thread.push({ role: "ai", text: d.reply, candidates: d.candidates || [] });
+    thread.push({
+      role: "ai", text: d.reply, candidates: d.candidates || [],
+      upsell: d.upsell || null, upsellStatus: d.upsell ? "pending" : null, id: ++turnSeq,
+    });
     // Voice in, voice out. The reply text names the match count, the top
     // pick, its merchant and its price - reading the grid aloud would be
     // unusable, and the cards are already on screen.
@@ -163,11 +197,44 @@ export async function runPolicyRejectionDemo() {
           + "<strong>before</strong> any Razorpay call was made — this gate is deterministic Python, never an LLM decision.",
       html: true,
       attachment: authorizationCard({ authorizationDecision: null, decision: d.decision, cartMandate: d.cart_mandate })
-        + auditTrailDisclosure(d.audit_trail),
+        + moneyBanner(d) + auditTrailDisclosure(d.audit_trail),
     });
   }
   setBusy(false);
   renderThread();
+}
+
+/* ---------------- upsell accept/decline ---------------- */
+
+/** Both branches call the exact same POST /api/order/confirm the legacy
+ *  quick-add flow already used - accept_upsell is the only thing that
+ *  differs, and both outcomes are equally real checkouts, equally audited
+ *  (upsell_accepted/upsell_declined - domain/audit/events.py). */
+async function resolveUpsell(turnId, accept) {
+  const msg = thread.find((t) => t.id === turnId);
+  if (!msg || msg.upsellStatus !== "pending") return;
+  msg.upsellStatus = "resolving";
+  renderThread({ animateLastTurn: false });
+
+  let res;
+  try { res = await api.confirmOrder(state.sessionId, accept); }
+  catch { res = { ok: false, data: null }; }
+  const data = (res && res.data) || {};
+
+  msg.upsellStatus = accept ? "accepted" : "declined";
+
+  if (!data.status) {
+    pushTurn({ role: "ai", text: "Couldn't reach the checkout service just then." });
+    return;
+  }
+  const receipt = (data.authorization_decision || data.decision)
+    ? authorizationCard({ authorizationDecision: data.authorization_decision, decision: data.decision, cartMandate: data.cart_mandate })
+    : "";
+  pushTurn({
+    role: "ai",
+    text: accept ? "Added the complementary item and completed checkout." : "Checked out with just the primary item.",
+    attachment: receipt + moneyBanner(data) + auditTrailDisclosure(data.audit_trail),
+  });
 }
 
 /* ---------------- mounting ---------------- */
@@ -203,6 +270,13 @@ export function mountConversation(root) {
   });
 
   document.getElementById("aa-policy-demo").addEventListener("click", runPolicyRejectionDemo);
+
+  document.getElementById("aa-thread").addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-action='upsell-accept'], [data-action='upsell-decline']");
+    if (!btn || btn.disabled) return;
+    tapBounce(btn);
+    resolveUpsell(Number(btn.dataset.turnId), btn.dataset.action === "upsell-accept");
+  });
 
   if (teardownVoice) teardownVoice();
   teardownVoice = wireVoiceButton({

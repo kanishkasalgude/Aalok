@@ -4,7 +4,7 @@
     {
       "name": "quickbite",
       "runtimeExecutable": ".venv\\Scripts\\python.exe",
-      "runtimeArgs": ["-m", "uvicorn", "backend.main:app", "--port", "8000"],
+      "runtimeArgs": ["-m", "uvicorn", "backend.main:app", "--port", "8000", "--reload"],
       "port": 8000
     }
   ]

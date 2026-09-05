@@ -31,7 +31,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
-from .api.routes import agent, analytics, audit, cart, catalog, chat, orders, payments, webhooks
+from .api.routes import agent, analytics, audit, cart, catalog, chat, orders, payments, session, webhooks
 from .repositories.db import init_db
 from .repositories.order_repo import seed_historical_orders
 from .services.catalog.ranking import warm_embedding_cache
@@ -40,6 +40,7 @@ from .integrations.merchants.food_adapter import all_food_products
 app = FastAPI(title="Aalok AI-Native Commerce API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
+app.include_router(session.router)
 app.include_router(chat.router)
 app.include_router(agent.router)
 app.include_router(catalog.router)

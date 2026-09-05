@@ -102,6 +102,18 @@
    action, so it gets the full-height treatment rather than the small one. */
 .qb-product-actions .qb-btn { padding: 10px 16px; font-size: var(--qb-fs-sm); }
 
+/* ============ upsell offer (Track 01 Phase 9) ============ */
+.qb-upsell-card {
+  margin-top: 10px; padding: var(--qb-space-4); border: 1px solid var(--qb-border);
+  border-radius: var(--qb-radius-xl); background: var(--qb-surface); max-width: 420px;
+}
+.qb-upsell-head { font-size: 11px; font-weight: 700; letter-spacing: .03em; color: var(--qb-text-muted); margin-bottom: 8px; }
+.qb-upsell-body { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.qb-upsell-title { font-weight: 600; color: var(--qb-text); }
+.qb-upsell-price { font-family: var(--qb-font-display); font-size: var(--qb-fs-lg); color: var(--qb-text); }
+.qb-upsell-reason { font-size: 12px; color: var(--qb-text-secondary); line-height: 1.5; margin-bottom: 12px; }
+.qb-upsell-actions { display: flex; gap: 8px; }
+
 /* ============ conversation turns ============ */
 .qb-msg { display: flex; gap: 12px; max-width: 100%; }
 .qb-msg-avatar {
@@ -151,7 +163,21 @@
 .qb-authz-head-title svg { width: 15px; height: 15px; flex: none; }
 .qb-authz-head.pass .qb-authz-head-title { color: #166534; }
 .qb-authz-head.reject .qb-authz-head-title { color: #991B1B; }
+.qb-authz-id { font-size: 11px; font-weight: 700; letter-spacing: .03em; font-variant-numeric: tabular-nums; color: var(--qb-text-muted); }
 .qb-authz-body { padding: var(--qb-space-2) var(--qb-space-5) var(--qb-space-4); }
+
+/* ============ money banner (RAZORPAY CALLED / MONEY MOVED) ============
+   The single most important visual in the product - shown on every real
+   checkout outcome, everywhere one is rendered. */
+.qb-money-banner {
+  display: flex; gap: var(--qb-space-4); padding: var(--qb-space-3) var(--qb-space-4);
+  background: var(--qb-surface-sunken); border-radius: var(--qb-radius-lg); margin: var(--qb-space-3) 0;
+}
+.qb-money-row { display: flex; flex-direction: column; gap: 2px; font-size: 11px; font-weight: 600; letter-spacing: .02em; color: var(--qb-text-secondary); flex: 1; }
+.qb-money-row strong { font-size: var(--qb-fs-sm); letter-spacing: .01em; font-weight: 700; }
+.qb-money-row strong.success { color: var(--qb-success); }
+.qb-money-row strong.danger { color: var(--qb-danger); }
+.qb-money-row strong.info { color: var(--qb-text-secondary); }
 .qb-authz-row { display: flex; align-items: center; justify-content: space-between; gap: var(--qb-space-4); padding: 9px 0; border-bottom: 1px dashed var(--qb-border); font-size: var(--qb-fs-sm); }
 .qb-authz-row:last-child { border-bottom: none; }
 .qb-authz-row-label { color: var(--qb-text-secondary); }
@@ -172,12 +198,14 @@
 .qb-audit-trail summary:hover { color: var(--qb-text); }
 .qb-audit-count { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: var(--qb-radius-full); background: var(--qb-border-soft); color: var(--qb-text-secondary); font-size: 11px; font-weight: 700; }
 .qb-audit-list { padding: 0 var(--qb-space-4) var(--qb-space-3); }
-.qb-audit-row { display: flex; align-items: center; justify-content: space-between; gap: var(--qb-space-4); padding: 7px 0; border-top: 1px dashed var(--qb-border); font-size: 12.5px; }
+.qb-audit-row { padding: 7px 0; border-top: 1px dashed var(--qb-border); font-size: 12.5px; }
 .qb-audit-row:first-child { border-top: none; }
-.qb-audit-row-step { color: var(--qb-text); }
+.qb-audit-row-main { display: flex; align-items: center; justify-content: space-between; gap: var(--qb-space-4); }
+.qb-audit-row-step { color: var(--qb-text); font-weight: 500; }
 .qb-audit-row-step.success { color: var(--qb-success); }
 .qb-audit-row-step.danger { color: var(--qb-danger); }
 .qb-audit-row-time { color: var(--qb-text-secondary); font-variant-numeric: tabular-nums; flex: none; }
+.qb-audit-row-detail { color: var(--qb-text-secondary); margin-top: 2px; font-size: 12px; overflow-wrap: anywhere; }
 
 /* ============ drawer (cart) ============ */
 .qb-drawer-backdrop {
@@ -253,3 +281,44 @@
 
 /* ============ misc ============ */
 .qb-divider { height: 1px; background: var(--qb-border); border: none; margin: var(--qb-space-4) 0; }
+
+/* ============ demo control panel (Track 01 Phase 12) ============ */
+.qb-demo-intro { font-size: var(--qb-fs-sm); color: var(--qb-text-secondary); line-height: 1.55; margin: 0 0 var(--qb-space-4); }
+
+/* ============ AI Buyer pipeline (Track 01 Phase 5) ============ */
+.qb-pipeline-card {
+  background: var(--qb-surface-sunken); border-radius: var(--qb-radius-lg);
+  padding: var(--qb-space-4); margin-bottom: var(--qb-space-5);
+}
+.qb-pipeline-title { font-weight: 600; font-size: var(--qb-fs-sm); color: var(--qb-text); margin-bottom: var(--qb-space-3); }
+.qb-pipeline-flow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: var(--qb-space-3); }
+.qb-pipeline-step {
+  font-size: 11px; font-weight: 600; letter-spacing: .01em; color: var(--qb-text);
+  background: var(--qb-surface); border: 1px solid var(--qb-border-strong);
+  border-radius: var(--qb-radius); padding: 4px 9px; white-space: nowrap;
+}
+.qb-pipeline-arrow { color: var(--qb-text-muted); font-size: 13px; }
+.qb-pipeline-note { font-size: 12px; color: var(--qb-text-secondary); line-height: 1.55; }
+.qb-pipeline-note code { font-size: 11px; background: var(--qb-surface); padding: 1px 5px; border-radius: 4px; }
+.qb-demo-grid { display: grid; grid-template-columns: 1fr; gap: var(--qb-space-2); margin-bottom: var(--qb-space-5); }
+.qb-demo-scenario-btn { justify-content: center; text-align: center; font-size: var(--qb-fs-sm); white-space: normal; min-width: 0; }
+.qb-demo-result { min-height: 1px; }
+.qb-demo-result-head {
+  display: flex; align-items: center; gap: var(--qb-space-2); font-weight: 600;
+  font-size: var(--qb-fs-base); color: var(--qb-text); margin-bottom: var(--qb-space-3);
+}
+.qb-demo-status-pill {
+  font-size: var(--qb-fs-xs); font-weight: 600; text-transform: uppercase; letter-spacing: .02em;
+  padding: 2px 9px; border-radius: var(--qb-radius-full); background: var(--qb-surface-sunken); color: var(--qb-text-secondary);
+}
+.qb-demo-status-pill.status-success { background: var(--qb-success-soft); color: #166534; }
+.qb-demo-status-pill.status-rejected_by_policy,
+.qb-demo-status-pill.status-rejected_by_authorization,
+.qb-demo-status-pill.status-payment_failed { background: var(--qb-danger-soft); color: #991B1B; }
+.qb-demo-status-pill.status-awaiting_checkout { background: var(--qb-canvas-soft); color: var(--qb-text-secondary); }
+
+.qb-attack-card { border: 1px solid var(--qb-border); border-radius: var(--qb-radius-lg); padding: var(--qb-space-4); margin-bottom: var(--qb-space-3); background: var(--qb-surface); }
+.qb-attack-row { margin-bottom: var(--qb-space-2); }
+.qb-attack-row:last-child { margin-bottom: 0; }
+.qb-attack-row span { display: block; font-size: 11px; font-weight: 700; letter-spacing: .03em; color: var(--qb-text-muted); margin-bottom: 2px; }
+.qb-attack-row div { font-size: var(--qb-fs-sm); color: var(--qb-text); line-height: 1.5; }

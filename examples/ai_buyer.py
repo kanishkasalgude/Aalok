@@ -41,6 +41,12 @@ import sys
 
 import requests
 
+# Windows' default console codepage (cp1252) can't encode ₹ - reconfigure
+# stdout to UTF-8 so this script's own print output (not the API, which is
+# already UTF-8 JSON) doesn't crash on Windows terminals. No-op elsewhere.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 DIETARY_ALIASES = {
     "vegetarian": "veg", "veg": "veg", "vegan": "vegan",
     "non-vegetarian": "non-veg", "non vegetarian": "non-veg", "non-veg": "non-veg",
@@ -48,6 +54,18 @@ DIETARY_ALIASES = {
     "low-carb": "low-carb", "low carb": "low-carb",
     "dessert": "dessert", "beverage": "beverage",
 }
+
+
+# Comma-tolerant (Indian 1,00,000 and international 100,000 grouping both
+# match) digit run, with an optional lakh/crore/k multiplier word resolved
+# deterministically. A bare `\d+` here would stop at the first comma and
+# silently turn "under ₹3,000" into 3 - see backend/services/agent/currency.py
+# for the identical fix applied to Aalok's own intent parser.
+_AMOUNT_RE = re.compile(
+    r"under\s*(?:₹|rs\.?|inr)?\s*(\d+(?:,\d{2,3})*(?:\.\d+)?)\s*(lakh|lakhs|lac|crore|crores|k)?\b",
+    re.IGNORECASE,
+)
+_MULTIPLIERS = {"lakh": 100_000, "lakhs": 100_000, "lac": 100_000, "crore": 10_000_000, "crores": 10_000_000, "k": 1_000}
 
 
 def parse_requirement(text: str) -> dict:
@@ -62,8 +80,11 @@ def parse_requirement(text: str) -> dict:
         if phrase in lower:
             dietary = tag
             break
-    m = re.search(r"under\s*(?:₹|rs\.?|inr)?\s*(\d+)", lower)
-    max_amount = float(m.group(1)) if m else 500.0
+    m = _AMOUNT_RE.search(lower)
+    if m:
+        max_amount = float(m.group(1).replace(",", "")) * _MULTIPLIERS.get((m.group(2) or "").lower(), 1)
+    else:
+        max_amount = 500.0
     return {"dietary_constraint": dietary, "max_amount": max_amount}
 
 

@@ -98,8 +98,10 @@ def test_quick_add_uses_the_same_confirm_and_policy_pipeline():
     data = resp.json()
     assert data["primary"]["id"] == "d501"
     session_id = data["session_id"]
+    session_token = data["session_token"]
 
-    confirm = client.post("/api/order/confirm", json={"session_id": session_id, "accept_upsell": False}).json()
+    confirm = client.post("/api/order/confirm", json={"session_id": session_id, "accept_upsell": False},
+                           headers={"X-Session-Token": session_token}).json()
     assert confirm["status"] == "success"
     assert confirm["decision"]["decision"] == "PASS"
 
