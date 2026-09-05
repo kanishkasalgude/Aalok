@@ -1,7 +1,7 @@
 .env
 __pycache__/
 *.pyc
-backend/quickbite.db
+backend/*.db
 .pytest_cache/
 venv/
 .venv/

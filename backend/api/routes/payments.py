@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from ...core.errors import RefundError
@@ -23,6 +23,7 @@ from ...services.order.service import order_service
 from ...services.payment.service import payment_service
 from ...services.refund.service import refund_service
 from ...services.session.store import session_store
+from ...services.session.auth import VerifiedSession, check_body_session_id, check_ownership, require_session
 from ...integrations.merchants.registry import get_adapter
 from ...repositories import order_repo
 
@@ -30,14 +31,14 @@ router = APIRouter()
 
 
 class VerifyPaymentRequest(BaseModel):
-    session_id: str
+    session_id: Optional[str] = None
     razorpay_payment_id: str
     razorpay_order_id: str
     razorpay_signature: str
 
 
 class PaymentFailedReport(BaseModel):
-    session_id: str
+    session_id: Optional[str] = None
     razorpay_order_id: str
     error_code: Optional[str] = None
     error_description: Optional[str] = None
@@ -49,7 +50,7 @@ class RefundRequest(BaseModel):
 
 
 class CheckoutRequest(BaseModel):
-    session_id: str
+    session_id: Optional[str] = None
     cart_id: str
     force_fail: bool = False
 
@@ -80,23 +81,25 @@ def _record_and_consume(session_id: str, order, status: str) -> None:
 
 
 @router.post("/api/order/verify-payment")
-def verify_payment(req: VerifyPaymentRequest):
+def verify_payment(req: VerifyPaymentRequest, verified: VerifiedSession = Depends(require_session)):
     """The backend counterpart to Checkout.js's success `handler`. THIS is
     what actually marks a cart payment_captured - never the browser
     callback firing by itself. Verifies razorpay_signature server-side
     against the order id THIS SERVER created, never trusting the request
     body's razorpay_order_id for the actual check."""
+    check_body_session_id(req.session_id, verified)
+    session_id = verified.session_id
     order = order_service.get_order_by_razorpay_id(req.razorpay_order_id)
-    if order is None or order.session_id != req.session_id:
+    if order is None or order.session_id != session_id:
         raise HTTPException(400, "Unknown order for this session - was it created by this server?")
 
     if order.status == OrderStatus.CAPTURED:
         return {"status": "success", "already_captured": True, "order": order.to_dict(),
-                "audit_trail": audit_repo.get_audit_trail(req.session_id)}
+                "audit_trail": audit_repo.get_audit_trail(session_id), **verified.as_response_fields()}
 
-    verified = payment_service.verify_checkout_signature(order.razorpay_order_id, req.razorpay_payment_id, req.razorpay_signature)
-    if not verified:
-        audit_repo.log_event(req.session_id, "payment_verification_failed", "failed", {
+    payment_verified = payment_service.verify_checkout_signature(order.razorpay_order_id, req.razorpay_payment_id, req.razorpay_signature)
+    if not payment_verified:
+        audit_repo.log_event(session_id, "payment_verification_failed", "failed", {
             "internal_order_id": order.internal_order_id, "razorpay_payment_id": req.razorpay_payment_id,
             "reason": "Checkout signature did not match - the callback is not trusted on its own.",
         })
@@ -110,65 +113,71 @@ def verify_payment(req: VerifyPaymentRequest):
         fetch_note = {"remote_confirmation_error": str(e)}
 
     payment = {"mode": "test", "id": req.razorpay_payment_id, "order_id": order.razorpay_order_id, "status": "captured"}
-    audit_repo.log_event(req.session_id, events.PAYMENT_ATTEMPTED, "success", {"payment": payment})
-    audit_repo.log_event(req.session_id, events.PAYMENT_CAPTURED, "success", {
+    audit_repo.log_event(session_id, events.PAYMENT_ATTEMPTED, "success", {"payment": payment})
+    audit_repo.log_event(session_id, events.PAYMENT_CAPTURED, "success", {
         "payment": payment, "internal_order_id": order.internal_order_id,
         "signature_verified": True, "fetch_payment_confirmation": fetch_note,
     })
     order.set_status(OrderStatus.CAPTURED)
     order.payment_id = req.razorpay_payment_id
-    _record_and_consume(req.session_id, order, "captured")
-    audit_repo.log_event(req.session_id, events.ORDER_CONFIRMED, "success", {"internal_order_id": order.internal_order_id})
+    _record_and_consume(session_id, order, "captured")
+    audit_repo.log_event(session_id, events.ORDER_CONFIRMED, "success", {"internal_order_id": order.internal_order_id})
 
     return {"status": "success", "order": order.to_dict(), "payment": payment,
-            "audit_trail": audit_repo.get_audit_trail(req.session_id)}
+            "audit_trail": audit_repo.get_audit_trail(session_id), **verified.as_response_fields()}
 
 
 @router.post("/api/order/payment-failed")
-def report_payment_failed(req: PaymentFailedReport):
+def report_payment_failed(req: PaymentFailedReport, verified: VerifiedSession = Depends(require_session)):
     """The backend counterpart to Checkout.js's `rzp.on('payment.failed', ...)`
     listener. Never marks anything captured - only failed/pending, and only
     if it isn't already captured (race-safe against the webhook)."""
+    check_body_session_id(req.session_id, verified)
+    session_id = verified.session_id
     order = order_service.get_order_by_razorpay_id(req.razorpay_order_id)
-    if order is None or order.session_id != req.session_id:
+    if order is None or order.session_id != session_id:
         raise HTTPException(400, "Unknown order for this session.")
 
     if order.status == OrderStatus.CAPTURED:
         return {"status": "success", "note": "Already captured - ignoring a late failure report.",
-                "audit_trail": audit_repo.get_audit_trail(req.session_id)}
+                "audit_trail": audit_repo.get_audit_trail(session_id), **verified.as_response_fields()}
 
     payment = {"mode": "test", "order_id": req.razorpay_order_id, "status": "failed",
                "error_code": req.error_code, "error_description": req.error_description}
-    audit_repo.log_event(req.session_id, events.PAYMENT_ATTEMPTED, "failed", {"payment": payment})
-    audit_repo.log_event(req.session_id, events.PAYMENT_FAILED, "failed",
+    audit_repo.log_event(session_id, events.PAYMENT_ATTEMPTED, "failed", {"payment": payment})
+    audit_repo.log_event(session_id, events.PAYMENT_FAILED, "failed",
                           {"payment": payment, "internal_order_id": order.internal_order_id})
     order.set_status(OrderStatus.FAILED)  # retryable: next /api/order/confirm call reuses the SAME order
-    _record_and_consume(req.session_id, order, "failed")
-    audit_repo.log_event(req.session_id, "recovery", "success", {
+    _record_and_consume(session_id, order, "failed")
+    audit_repo.log_event(session_id, "recovery", "success", {
         "message": "Real Razorpay Test Mode payment declined. Order left in a safe pending state — "
                    "no duplicate order was created, and the user can retry (same order) with a "
                    "different UPI handle (e.g. success@razorpay).",
         "internal_order_id": order.internal_order_id,
     })
     return {"status": "payment_failed", "order_id": req.razorpay_order_id,
-            "audit_trail": audit_repo.get_audit_trail(req.session_id)}
+            "audit_trail": audit_repo.get_audit_trail(session_id), **verified.as_response_fields()}
 
 
 # --- new generalized surface --------------------------------------------------
 
 @router.post("/api/payments/create")
-def create_payment(req: CheckoutRequest):
+def create_payment(req: CheckoutRequest, verified: VerifiedSession = Depends(require_session)):
     """Same underlying operation as POST /api/orders (OrderService.checkout
     revalidates -> authorizes -> policy-checks -> creates/reuses the order
     -> attempts payment) - exposed under /api/payments too, matching the
     spec's requested route inventory. There is no separate 'just charge
     this amount' path that skips Authorization/Policy."""
+    check_body_session_id(req.session_id, verified)
     cart = cart_service.get_cart(req.cart_id)
-    session = session_store.get(req.session_id)
+    if cart is not None:
+        check_ownership(cart.session_id, verified, what="cart")
+    session = session_store.get(verified.session_id)
     if cart is None or session is None or session.intent_mandate is None:
-        return {"error": "Unknown cart or session."}
-    return order_service.checkout(cart, session.intent_mandate, session.authorization,
-                                   force_fail=req.force_fail, buyer="api_client")
+        return {"error": "Unknown cart or session.", **verified.as_response_fields()}
+    result = order_service.checkout(cart, session.intent_mandate, session.authorization,
+                                     force_fail=req.force_fail, buyer="api_client")
+    return {**result, **verified.as_response_fields()}
 
 
 @router.get("/api/payments/refunds")
@@ -181,33 +190,39 @@ def list_refunds(limit: int = 100):
 
 
 @router.get("/api/payments/{payment_id}")
-def get_payment(payment_id: str):
+def get_payment(payment_id: str, verified: VerifiedSession = Depends(require_session)):
     order = order_service.get_order_by_payment_id(payment_id)
     if order is None:
-        return {"error": f"Unknown payment_id '{payment_id}'."}
+        return {"error": f"Unknown payment_id '{payment_id}'.", **verified.as_response_fields()}
+    check_ownership(order.session_id, verified, what="payment")
     return {"payment_id": payment_id, "internal_order_id": order.internal_order_id,
-            "status": order.status.value, "amount": order.amount, "currency": order.currency}
+            "status": order.status.value, "amount": order.amount, "currency": order.currency,
+            **verified.as_response_fields()}
 
 
 @router.post("/api/payments/{internal_order_id}/refund")
-def create_refund(internal_order_id: str, req: RefundRequest):
+def create_refund(internal_order_id: str, req: RefundRequest, verified: VerifiedSession = Depends(require_session)):
     order = order_service.get_order(internal_order_id)
     if order is None:
-        return {"error": f"Unknown internal_order_id '{internal_order_id}'."}
+        return {"error": f"Unknown internal_order_id '{internal_order_id}'.", **verified.as_response_fields()}
+    check_ownership(order.session_id, verified, what="order")
     audit_repo.log_event(order.session_id, events.REFUND_REQUESTED, "pending",
                           {"internal_order_id": internal_order_id, "reason": req.reason})
     try:
         refund = refund_service.create_refund(order, req.reason, req.amount)
     except RefundError as e:
-        return {"error": str(e)}
+        return {"error": str(e), **verified.as_response_fields()}
     audit_repo.log_event(order.session_id, events.REFUND_COMPLETED, "success", refund.to_dict())
-    return refund.to_dict()
+    return {**refund.to_dict(), **verified.as_response_fields()}
 
 
 @router.get("/api/payments/refunds/{refund_id}")
-def get_refund(refund_id: str):
+def get_refund(refund_id: str, verified: VerifiedSession = Depends(require_session)):
     from ...repositories import refund_repo
     refund = refund_repo.get_refund(refund_id)
     if refund is None:
-        return {"error": f"Unknown refund_id '{refund_id}'."}
-    return refund
+        return {"error": f"Unknown refund_id '{refund_id}'.", **verified.as_response_fields()}
+    owning_order = order_service.get_order(refund["internal_order_id"])
+    if owning_order is not None:
+        check_ownership(owning_order.session_id, verified, what="refund")
+    return {**refund, **verified.as_response_fields()}

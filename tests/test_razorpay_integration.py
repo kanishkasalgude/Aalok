@@ -28,6 +28,7 @@ from backend.services.authorization.service import AuthorizationService
 from backend.services.cart.service import cart_service
 from backend.services.order.service import order_service
 from backend.services.payment.service import payment_service
+from conftest import auth_headers
 
 client = TestClient(main_module.app)
 
@@ -159,7 +160,7 @@ def test_verify_payment_marks_captured_on_valid_signature(real_test_mode):
     resp = client.post("/api/order/verify-payment", json={
         "session_id": session_id, "razorpay_payment_id": payment_id,
         "razorpay_order_id": order_id, "razorpay_signature": signature,
-    })
+    }, headers=auth_headers(session_id))
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "success"
@@ -181,10 +182,10 @@ def test_verify_payment_rejects_invalid_signature_and_does_not_capture(real_test
     resp = client.post("/api/order/verify-payment", json={
         "session_id": session_id, "razorpay_payment_id": "pay_whatever",
         "razorpay_order_id": order_id, "razorpay_signature": "totally-forged-signature",
-    })
+    }, headers=auth_headers(session_id))
     assert resp.status_code == 400
 
-    audit = client.get(f"/api/audit?session_id={session_id}").json()["events"]
+    audit = client.get(f"/api/audit?session_id={session_id}", headers=auth_headers(session_id)).json()["events"]
     steps = [e["step"] for e in audit]
     assert "payment_captured" not in steps
     assert "payment_verification_failed" in steps
@@ -203,7 +204,7 @@ def test_verify_payment_cannot_be_forged_with_a_different_order_id(real_test_mod
     resp = client.post("/api/order/verify-payment", json={
         "session_id": session_id, "razorpay_payment_id": payment_id,
         "razorpay_order_id": real_order_id, "razorpay_signature": forged_signature,
-    })
+    }, headers=auth_headers(session_id))
     assert resp.status_code == 400
 
 
@@ -246,7 +247,7 @@ def test_webhook_processes_signed_payment_captured_and_is_idempotent(monkeypatch
     assert r2.status_code == 200
     assert r2.json()["status"] == "duplicate_ignored"
 
-    audit = client.get(f"/api/audit?session_id={session_id}").json()["events"]
+    audit = client.get(f"/api/audit?session_id={session_id}", headers=auth_headers(session_id)).json()["events"]
     webhook_events = [e for e in audit if e["step"] == "webhook_received"]
     captured_events = [e for e in audit if e["step"] == "payment_captured"]
     assert len(webhook_events) == 1, "a duplicate webhook delivery must not log a second audit event"
@@ -270,7 +271,7 @@ def test_webhook_handles_payment_failed(monkeypatch, real_test_mode):
     resp = client.post("/api/webhook/razorpay", content=raw, headers=headers)
     assert resp.status_code == 200
 
-    audit = client.get(f"/api/audit?session_id={session_id}").json()["events"]
+    audit = client.get(f"/api/audit?session_id={session_id}", headers=auth_headers(session_id)).json()["events"]
     steps = [e["step"] for e in audit]
     assert "payment_failed" in steps
     assert "payment_captured" not in steps

@@ -21,6 +21,7 @@ from ...core.config import get_settings
 from ...domain.catalog.merchant import CATEGORIES
 from ...domain.commerce.intent import Intent
 from ...integrations.llm.gemini import call_with_timeout, gemini_unreachable, llm_api_key
+from .currency import parse_amount
 
 DIETARY_VOCAB = ["veg", "non-veg", "vegan", "high-protein", "low-carb", "dessert", "beverage"]
 
@@ -77,12 +78,7 @@ User message: {user_text}
 def _heuristic_parse_intent(user_text: str) -> Intent:
     text = user_text.lower()
 
-    max_price = None
-    m = re.search(r"(?:under|below|less than|within)\s*(?:rs\.?|₹|inr)?\s*(\d+)", text)
-    if not m:
-        m = re.search(r"(?:₹|rs\.?)\s*(\d+)", text)
-    if m:
-        max_price = float(m.group(1))
+    max_price = parse_amount(text)
 
     delivery_requirement = None
     m = re.search(r"(\d+)\s*(?:min|minutes|mins)", text)

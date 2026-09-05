@@ -23,6 +23,7 @@ class Settings:
     razorpay_key_secret: str | None
     razorpay_webhook_secret: str | None
     database_url: str
+    session_secret: str | None
 
     @staticmethod
     def load() -> "Settings":
@@ -34,6 +35,7 @@ class Settings:
             razorpay_key_secret=os.environ.get("RAZORPAY_KEY_SECRET"),
             razorpay_webhook_secret=os.environ.get("RAZORPAY_WEBHOOK_SECRET"),
             database_url=os.environ.get("DATABASE_URL", "sqlite:///./backend/aalok.db"),
+            session_secret=os.environ.get("SESSION_SECRET"),
         )
 
 

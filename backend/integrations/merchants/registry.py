@@ -17,6 +17,7 @@ from .fashion_adapter import FashionAdapter
 from .food_adapter import all_food_adapters
 from .grocery_adapter import GroceryAdapter
 from .jewellery_adapter import JewelleryAdapter
+from .legacy_gadgets_adapter import LegacyGadgetsAdapter
 from .quickcommerce_adapter import QuickCommerceAdapter
 from .services_adapter import ServicesAdapter
 
@@ -28,6 +29,7 @@ def _build_registry() -> list:
     adapters += [
         GroceryAdapter(), FashionAdapter(), BeautyAdapter(), ElectronicsAdapter(),
         JewelleryAdapter(), EntertainmentAdapter(), ServicesAdapter(), QuickCommerceAdapter(),
+        LegacyGadgetsAdapter(),
     ]
     return adapters
 

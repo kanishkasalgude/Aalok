@@ -12,7 +12,8 @@
    ============================================================ */
 import { api } from "./api.js";
 import { state, setMerchants } from "./state.js";
-import { mountCartDrawer, addToCart, openCartDrawer, onCartCountChange } from "./components/cartDrawer.js";
+import { mountCartDrawer, addToCart, openCartDrawer, closeCartDrawer, onCartCountChange } from "./components/cartDrawer.js";
+import { mountDemoPanel, openDemoPanel, closeDemoPanel } from "./components/demoPanel.js";
 import { micButtonHtml, wireVoiceButton, SEND_ICON } from "./components/composer.js";
 import { mountConversation, sendMessage, isConversationEmpty, resetConversation } from "./conversation.js";
 import { categoryIcon, escapeHtml, brandMark } from "./format.js";
@@ -30,6 +31,7 @@ const SUGGESTIONS = [
 ];
 
 const CART_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 12.1a2 2 0 0 0 2 1.6h8.3a2 2 0 0 0 2-1.6L21.5 7H6"/></svg>`;
+const DEMO_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 20h8M9 9l3 2-3 2V9Z" fill="currentColor" stroke="none"/></svg>`;
 
 let teardownParallax = null;
 let teardownLandingVoice = null;
@@ -48,6 +50,9 @@ function renderShell() {
         <span class="aa-mode" id="aa-mode" title="Payment provider mode">
           <span class="aa-mode-dot" aria-hidden="true"></span><span>Checking&hellip;</span>
         </span>
+        <button class="aa-cart-btn" id="aa-demo-btn" type="button" aria-label="Open demo control panel" title="Demo Control Panel">
+          ${DEMO_ICON}<span class="label">Demo</span>
+        </button>
         <button class="aa-cart-btn" id="aa-cart-btn" type="button" aria-label="Open cart">
           ${CART_ICON}<span class="label">Cart</span>
           <span class="aa-cart-count" id="aa-cart-count" hidden>0</span>
@@ -59,7 +64,14 @@ function renderShell() {
 
   document.getElementById("aa-cart-btn").addEventListener("click", (e) => {
     tapBounce(e.currentTarget);
+    closeDemoPanel();
     openCartDrawer();
+  });
+
+  document.getElementById("aa-demo-btn").addEventListener("click", (e) => {
+    tapBounce(e.currentTarget);
+    closeCartDrawer();
+    openDemoPanel();
   });
 
   // The wordmark is the way back to a blank slate - the only "navigation"
@@ -96,8 +108,9 @@ function showLanding() {
     <section class="aa-hero" id="aa-hero">
       ${HERO_ART}
       <div class="aa-hero-inner">
-        <h1>Just ask Aalok</h1>
-        <p class="aa-hero-sub">One agent across every connected merchant. It finds, compares and buys &mdash; and never moves money without passing a deterministic policy gate first.</p>
+        <h1>AI proposes.<br/>Aalok authorizes.</h1>
+        <p class="aa-hero-sub">Aalok is the authorization layer between AI buyers and merchant payments. AI agents discover products and propose purchases; deterministic policy checks validate budget, inventory, cart integrity and merchant constraints before Razorpay ever executes the transaction.</p>
+        <div class="aa-hero-pipeline"><span>AI PROPOSES</span><span class="aa-hero-pipeline-arrow">&rarr;</span><span>AALOK AUTHORIZES</span><span class="aa-hero-pipeline-arrow">&rarr;</span><span>RAZORPAY EXECUTES</span></div>
         <form class="aa-ask" id="aa-ask">
           <input id="aa-ask-input" type="text" autocomplete="off" placeholder="Ask for anything, in plain language&hellip;" aria-label="Ask Aalok" />
           ${micButtonHtml("aa-ask-mic")}
@@ -235,8 +248,16 @@ async function boot() {
   renderShell();
   wireGlobalActions();
   mountCartDrawer();
+  mountDemoPanel();
   onCartCountChange(updateCartCount);
   loadPaymentMode();
+
+  // Establishes (or refreshes) this browser's signed session identity
+  // (Track 01 Phase 2) - fire-and-forget like the other boot calls below:
+  // even the very first chat/cart call before this resolves still works,
+  // since the server mints a session on any request with no token and
+  // api.js persists whatever it hands back.
+  api.createSession();
 
   // The merchant registry backs the authorization card's merchant/category
   // rows, so it has to be in hand before the first checkout - but it must

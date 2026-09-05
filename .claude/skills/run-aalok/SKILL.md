@@ -83,7 +83,8 @@ sleep 3
    - **Conversation** — the agent's reply plus product cards from every merchant, inline. Requires `GEMINI_API_KEY` for the real LLM path; falls back to deterministic heuristics otherwise
    - **Cart drawer** — opens on add-to-cart, or via the Cart button in the header
    - **Checkout** — the drawer shows the payment result and the full authorization/policy receipt
-   - **Demos** — "see the policy engine reject a cart" (under the composer) and "Simulate a failed payment" (in the cart drawer, next to Checkout)
+   - **Demos** — "see the policy engine reject a cart" (under the composer), "Simulate a failed payment" (in the cart drawer, next to Checkout), and the **Demo Control Panel** ("Demo" button in the header) — one-click Successful Purchase / Budget Rejection / Cart Tampering / Payment Failure / Payment Retry / External AI Buyer / Upsell Accepted / Upsell Declined scenarios, each a real backend call
+   - **Sessions** — every browser tab gets a signed, expiring session token minted automatically on first request (`POST /api/session`, `backend/services/session/auth.py`); no login step
 
 ## Run (human path)
 
@@ -110,7 +111,7 @@ Run the full test suite:
 python -m pytest tests/ -v
 ```
 
-Expected: **99 tests passing**. Covers:
+Expected: **145 tests passing**. Covers:
 - Commerce Policy Engine (mandate validation, spend/time/diet bounds)
 - Authorization layer
 - Cart service lifecycle

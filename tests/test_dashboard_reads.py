@@ -21,6 +21,7 @@ from backend.domain.commerce.mandates import IntentMandate
 from backend.services.authorization.service import AuthorizationService
 from backend.services.cart.service import cart_service
 from backend.services.order.service import order_service
+from conftest import auth_headers
 
 client = TestClient(main_module.app)
 
@@ -54,7 +55,7 @@ def test_get_single_order_still_works_alongside_the_new_list_route():
     session_id = f"get-order-{uuid.uuid4().hex[:8]}"
     result = _checkout(session_id)
     order_id = result["internal_order"]["internal_order_id"]
-    resp = client.get(f"/api/orders/{order_id}").json()
+    resp = client.get(f"/api/orders/{order_id}", headers=auth_headers(session_id)).json()
     assert resp["internal_order_id"] == order_id
 
 
