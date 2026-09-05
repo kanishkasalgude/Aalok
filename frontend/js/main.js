@@ -47,9 +47,6 @@ function renderShell() {
           <span class="aa-brand-name">Aalok</span>
         </button>
         <span class="aa-header-spacer"></span>
-        <span class="aa-mode" id="aa-mode" title="Payment provider mode">
-          <span class="aa-mode-dot" aria-hidden="true"></span><span>Checking&hellip;</span>
-        </span>
         <button class="aa-cart-btn" id="aa-demo-btn" type="button" aria-label="Open demo control panel" title="Demo Control Panel">
           ${DEMO_ICON}<span class="label">Demo</span>
         </button>
@@ -109,7 +106,6 @@ function showLanding() {
       ${HERO_ART}
       <div class="aa-hero-inner">
         <h1>AI proposes.<br/>Aalok authorizes.</h1>
-        <p class="aa-hero-sub">Aalok is the authorization layer between AI buyers and merchant payments. AI agents discover products and propose purchases; deterministic policy checks validate budget, inventory, cart integrity and merchant constraints before Razorpay ever executes the transaction.</p>
         <div class="aa-hero-pipeline"><span>AI PROPOSES</span><span class="aa-hero-pipeline-arrow">&rarr;</span><span>AALOK AUTHORIZES</span><span class="aa-hero-pipeline-arrow">&rarr;</span><span>RAZORPAY EXECUTES</span></div>
         <form class="aa-ask" id="aa-ask">
           <input id="aa-ask-input" type="text" autocomplete="off" placeholder="Ask for anything, in plain language&hellip;" aria-label="Ask Aalok" />
@@ -202,12 +198,6 @@ async function loadPaymentMode() {
     mode = res.data || {};
   } catch { /* leave it unknown */ }
   state.paymentMode = mode;
-  const label = mode.mode === "test" ? "Razorpay Test Mode"
-    : mode.mode === "mock" ? "Mock payments"
-    : "Payments misconfigured";
-  const el = document.getElementById("aa-mode");
-  el.innerHTML = `<span class="aa-mode-dot mode-${mode.mode || "unknown"}" aria-hidden="true"></span><span>${label}</span>`;
-  el.title = mode.note || mode.error || label;
 }
 
 function updateCartCount(count) {

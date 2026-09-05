@@ -32,9 +32,7 @@
   position: sticky;
   top: 0;
   z-index: 30;
-  background: rgba(245, 245, 245, 0.86);
-  backdrop-filter: saturate(140%) blur(12px);
-  -webkit-backdrop-filter: saturate(140%) blur(12px);
+  background: transparent;
   border-bottom: 1px solid transparent;
   transition: border-color var(--qb-dur-micro) var(--qb-ease);
 }
@@ -63,20 +61,6 @@
   color: var(--qb-text);
 }
 .aa-header-spacer { flex: 1; }
-
-/* Payment mode. A quiet fact, not a badge to be proud of - it earns exactly
-   one dot and one word. */
-.aa-mode {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: var(--qb-fs-xs); color: var(--qb-text-secondary);
-  padding: 5px 11px; border-radius: var(--qb-radius-full);
-  border: 1px solid var(--qb-border); background: var(--qb-surface);
-  white-space: nowrap;
-}
-.aa-mode-dot { width: 6px; height: 6px; border-radius: 50%; flex: none; background: var(--qb-text-muted); }
-.aa-mode-dot.mode-mock { background: var(--qb-warning); }
-.aa-mode-dot.mode-test { background: var(--qb-success); }
-.aa-mode-dot.mode-misconfigured { background: var(--qb-danger); }
 
 .aa-cart-btn {
   position: relative;
@@ -137,14 +121,6 @@
   color: var(--qb-text);
   max-width: 16ch;
 }
-.aa-hero-sub {
-  margin-top: var(--qb-space-6);
-  font-size: var(--qb-fs-lg);
-  line-height: 1.55;
-  color: var(--qb-text-secondary);
-  max-width: 560px;
-}
-
 /* The thesis, restated as the literal pipeline - deliberately plain
    (no gradients, no glow) so it reads as an engineering fact, not a
    marketing flourish. */
